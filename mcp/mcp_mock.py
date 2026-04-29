@@ -1,5 +1,7 @@
 class MockSwiggyFoodMCP:
     def __init__(self) -> None:
+        self._cart = {"restaurant_id": None, "items": []}
+        self._orders: dict[str, dict] = {}
         self._restaurants = [
             {
                 "id": "rest_1",
@@ -93,9 +95,61 @@ class MockSwiggyFoodMCP:
                 return restaurant["menu"]
         return []
 
+    def search_menu(self, restaurant_id: str, query: str) -> list[dict]:
+        normalized_query = query.lower()
+        return [
+            item
+            for item in self.get_restaurant_menu(restaurant_id)
+            if normalized_query in item["name"].lower()
+        ]
+
     def update_food_cart(self, restaurant_id: str, items: list[dict]) -> dict:
-        return {
+        self._cart = {
             "restaurant_id": restaurant_id,
             "items": items,
             "message": "Mock cart updated successfully.",
+        }
+        return dict(self._cart)
+
+    def get_food_cart(self) -> dict:
+        return dict(self._cart)
+
+    def place_food_order(self, user_confirmed: bool) -> dict:
+        if not user_confirmed:
+            return {
+                "success": False,
+                "message": "Mock order was not placed because user confirmation was missing.",
+            }
+
+        if not self._cart["items"]:
+            return {
+                "success": False,
+                "message": "Mock order was not placed because the cart is empty.",
+            }
+
+        order_id = f"mock_order_{len(self._orders) + 1}"
+        order = {
+            "success": True,
+            "order_id": order_id,
+            "status": "confirmed",
+            "message": "Mock order confirmed. No real Swiggy order was placed.",
+            "cart": dict(self._cart),
+        }
+        self._orders[order_id] = order
+        return order
+
+    def track_food_order(self, order_id: str) -> dict:
+        order = self._orders.get(order_id)
+        if not order:
+            return {
+                "success": False,
+                "message": "Mock order not found.",
+                "order_id": order_id,
+            }
+
+        return {
+            "success": True,
+            "order_id": order_id,
+            "status": order["status"],
+            "message": "Mock tracking response. No real delivery is in progress.",
         }

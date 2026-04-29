@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from typing import Any
 
+from mcp.mcp_client import SwiggyFoodMCPClient
 from mcp.mcp_mock import MockSwiggyFoodMCP
 from utils.nutrition_scorer import score_meals
 
@@ -17,7 +18,15 @@ class MealConstraints:
 class NutriOrderAgent:
     def __init__(self, settings: Any) -> None:
         self.settings = settings
-        self.mcp = MockSwiggyFoodMCP()
+        self.mcp = self._build_mcp_client()
+
+    def _build_mcp_client(self) -> Any:
+        if self.settings.use_mock_mcp:
+            return MockSwiggyFoodMCP()
+        return SwiggyFoodMCPClient(
+            base_url=self.settings.swiggy_base_url,
+            token=self.settings.swiggy_token,
+        )
 
     def recommend_meal(
         self,
@@ -71,10 +80,30 @@ class NutriOrderAgent:
             restaurant_id=best_meal["restaurant_id"],
             items=[{"item_id": best_meal["item_id"], "quantity": 1}],
         )
+        cart_state = self.mcp.get_food_cart()
 
         return {
             "success": True,
             "constraints": constraints.__dict__,
             "recommendation": best_meal,
             "cart_preview": cart_preview,
+            "cart_state": cart_state,
+            "mock_mode": self.settings.use_mock_mcp,
+        }
+
+    def confirm_order(self, latest_result: dict[str, Any]) -> dict[str, Any]:
+        if not latest_result.get("success"):
+            return {"success": False, "message": "No valid recommendation is available to confirm."}
+
+        order_response = self.mcp.place_food_order(user_confirmed=True)
+        if not order_response.get("success"):
+            return order_response
+
+        tracking = self.mcp.track_food_order(order_response["order_id"])
+        return {
+            "success": True,
+            "message": order_response["message"],
+            "order": order_response,
+            "tracking": tracking,
+            "mock_mode": self.settings.use_mock_mcp,
         }

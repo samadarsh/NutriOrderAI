@@ -26,6 +26,27 @@ def render_result(result: dict) -> None:
         st.subheader("Mock Cart Preview")
         st.json(result["cart_preview"])
 
+    if result.get("cart_state"):
+        st.subheader("Cart State")
+        st.json(result["cart_state"])
+
+
+def render_confirmation_result(result: dict) -> None:
+    if not result["success"]:
+        st.error(result["message"])
+        return
+
+    st.subheader("Order Confirmation")
+    st.success(result["message"])
+    st.json(result["order"])
+
+    if result.get("tracking"):
+        st.subheader("Tracking Preview")
+        st.json(result["tracking"])
+
+    if result.get("mock_mode"):
+        st.info("This is a placeholder confirmation flow. No real Swiggy order was placed.")
+
 
 def main() -> None:
     settings = get_settings()
@@ -68,9 +89,22 @@ def main() -> None:
             st.error(result["message"])
             return
 
-        render_result(result)
-        if settings.use_mock_mcp:
+        st.session_state["latest_result"] = result
+        st.session_state.pop("confirmation_result", None)
+
+    latest_result = st.session_state.get("latest_result")
+    if latest_result:
+        render_result(latest_result)
+        if latest_result.get("mock_mode"):
             st.info("Running in mock MCP mode. No real Swiggy order was placed.")
+
+        if st.button("Confirm Order (Placeholder)"):
+            confirmation_result = agent.confirm_order(latest_result)
+            st.session_state["confirmation_result"] = confirmation_result
+
+    confirmation_result = st.session_state.get("confirmation_result")
+    if confirmation_result:
+        render_confirmation_result(confirmation_result)
 
 
 if __name__ == "__main__":
