@@ -1,6 +1,6 @@
 # NutriOrder AI
 
-AI-powered fitness meal ordering agent that helps users discover and choose meals based on protein goals, budget, dietary preferences, and delivery constraints.
+AI-powered nutrition-aware food ordering agent that recommends high-protein meals based on user goals, budget, and preferences, and places confirmed orders through Swiggy MCP.
 
 ---
 
@@ -12,50 +12,64 @@ Users struggle to consistently find meals that match:
 - Delivery time expectations
 - Healthy eating habits
 
-Food ordering apps provide options, but not decision-making.
+Food ordering apps provide options, but not intelligent decision-making.
 
 ---
 
 ## Solution
 
-NutriOrder AI acts as an intelligent decision layer on top of Swiggy Food MCP.
+NutriOrder AI acts as an AI-driven decision layer on top of Swiggy, enabling users to:
 
-It:
-- Understands user intent such as "high protein dinner under Rs 300"
-- Converts that request into structured meal constraints
-- Searches available food options through Swiggy MCP
-- Ranks meals using nutrition, price, and delivery-aware scoring
-- Recommends a best-fit meal and can prepare the order flow
+- Discover meals aligned with fitness goals such as high protein or lower calorie options
+- Stay within budget
+- Reduce decision fatigue
+- Order efficiently with AI-assisted recommendations
 
 ---
 
 ## Core Features
 
-- High-protein meal discovery
-- Budget-aware ranking
-- Fast-delivery filtering
-- Goal-driven meal recommendations
-- MCP-ready food ordering workflow
+- Nutrition-aware meal recommendations
+- Budget-constrained ordering
+- Delivery-time optimization
+- AI-driven ranking of menu items
+- Smart cart management via Swiggy MCP
+- Safe order placement with user confirmation
+- Real-time order tracking
 
 ---
 
 ## Architecture
 
-User -> Streamlit UI -> AI Agent -> Swiggy Food MCP -> Recommendation / Order Flow
+User -> Frontend -> AI Agent -> Address Resolution -> Swiggy MCP Food Server -> Nutrition Scoring -> Cart -> User Confirmation -> Order Placement
 
-### Canonical Food Flow
-1. User inputs goal, budget, and preference
-2. Agent resolves the delivery address context
-3. Target Swiggy Food MCP sequence for live integration:
-   - `get_addresses`
-   - `search_restaurants`
-   - `get_restaurant_menu`
-   - `update_food_cart`
-   - `get_food_cart`
-   - `place_food_order`
-4. NutriOrder ranks candidate meals using nutrition + cost + delivery scoring
-5. Final recommendation is shown before order confirmation
-6. Current scaffold stops at recommendation plus mock cart preparation
+### Flow
+
+1. User inputs goal, budget, and dietary preference
+2. AI agent converts input into structured constraints
+3. Resolve delivery location using `get_addresses`
+4. Discover restaurants using `search_restaurants`
+5. Retrieve menu data using `get_restaurant_menu` or `search_menu`
+6. Rank meals using estimated protein value, price, delivery time, and user preferences
+7. Build cart using `update_food_cart`
+8. Verify cart using `get_food_cart`
+9. Require explicit user confirmation
+10. Place order using `place_food_order`
+11. Track order using `track_food_order`
+
+### Current MVP Note
+
+The current local scaffold in this repository stops at recommendation plus mock cart preparation. Real order placement and tracking are planned for the live MCP integration phase.
+
+---
+
+## Compliance And Safety
+
+- Orders are placed only after explicit user confirmation
+- Cart is verified before placing an order
+- Food cart is tied to a single restaurant
+- No blind retries on order placement because it is non-idempotent
+- COD support can be handled during the live integration phase
 
 ---
 
@@ -85,15 +99,27 @@ NutriOrderAI/
 
 - Frontend: Streamlit
 - Agent Layer: Python orchestration layer
-- MCP Integration: Swiggy Food MCP
+- Execution Layer: Swiggy MCP Food Server
 - Config: `python-dotenv`
-- Future Agent Upgrade Path: OpenAI Agents SDK or LangGraph
+- Future Upgrade Path: OpenAI Agents SDK or LangGraph
+
+---
+
+## MCP Integration
+
+NutriOrder AI integrates with Swiggy's Model Context Protocol:
+
+- Uses the Swiggy Food MCP server
+- Executes actions via authenticated API calls
+- Processes structured JSON responses for decision-making
+- Maintains server-side cart state
 
 ---
 
 ## Current MVP Scope
 
 This repository currently focuses on:
+
 - A local Streamlit interface
 - A mock MCP integration for development
 - Nutrition-first recommendation logic
@@ -101,11 +127,22 @@ This repository currently focuses on:
 
 ---
 
+## Demo Flow
+
+1. User: "Order me a high-protein dinner under Rs 300"
+2. Agent filters meals based on protein and price
+3. Agent ranks optimal choices
+4. Agent prepares a mock cart preview
+5. User reviews the recommendation
+6. Live MCP ordering can be added in the next phase
+
+---
+
 ## Status
 
-- MVP scaffold in progress
-- Mock MCP flow used for local development
-- Real Swiggy MCP authentication and production access can be integrated later
+- Currently in MVP development phase
+- Prototyping against a local mock flow
+- Production Swiggy MCP access is still pending approval
 
 ---
 
@@ -113,7 +150,21 @@ This repository currently focuses on:
 
 - Real Swiggy MCP client integration
 - Cart review and confirmation UI
-- User preference persistence
-- Calorie and macro tracking
-- Weekly meal planning
-- Fitness tracker integration
+- Instamart integration
+- Macro tracking for protein, carbs, and fats
+- Personalized diet profiles
+- Integration with fitness apps
+
+---
+
+## Author
+
+Sam Adarsh
+AI & Data Science | Building AI systems for real-world automation
+Founder @ Haugtun
+
+---
+
+## Note
+
+This project is being built as part of the Swiggy Builders Club program.
