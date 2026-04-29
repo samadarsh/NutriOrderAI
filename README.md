@@ -92,3 +92,80 @@ NutriOrderAI/
 ├── .env.example
 ├── README.md
 └── .gitignore
+```
+
+---
+
+## 🧰 Tech Stack
+
+- 🎨 Frontend: Streamlit  
+- 🧠 Agent Layer: Python orchestration layer  
+- 🔌 Execution Layer: Swiggy MCP Food Server  
+- ⚙️ Config: `python-dotenv`  
+- 🚀 Future Upgrade Path: OpenAI Agents SDK or LangGraph  
+
+---
+
+## 🔗 MCP Integration
+
+NutriOrder AI integrates with Swiggy's Model Context Protocol:
+
+- 🍛 Uses the Swiggy Food MCP server  
+- 🔐 Executes actions via authenticated API calls  
+- 📄 Processes structured JSON responses for decision-making  
+- 🧺 Maintains server-side cart state  
+
+---
+
+## 🎯 Current MVP Scope
+
+This repository currently focuses on:
+
+- 🖥️ A local Streamlit interface  
+- 🧪 A mock MCP integration for development  
+- 🥗 Nutrition-first recommendation logic  
+- 🔄 A clean structure for swapping in a real Swiggy MCP client later  
+
+---
+
+## 🎬 Demo Flow
+
+1. User: "Order me a high-protein dinner under Rs 300"  
+2. Agent filters meals based on protein and price  
+3. Agent ranks optimal choices  
+4. Agent prepares a mock cart preview  
+5. User reviews the recommendation  
+6. Live MCP ordering can be added in the next phase  
+
+---
+
+## 📌 Status
+
+- 🚧 Currently in MVP development phase  
+- 🧪 Prototyping against a local mock flow  
+- 🔐 Production Swiggy MCP access is still pending approval  
+
+---
+
+## 🔮 Future Improvements
+
+- 🔌 Real Swiggy MCP client integration  
+- 🛒 Cart review and confirmation UI  
+- 🛍️ Instamart integration  
+- 📊 Macro tracking for protein, carbs, and fats  
+- 👤 Personalized diet profiles  
+- ⌚ Integration with fitness apps  
+
+---
+
+## 👤 Author
+
+Sam Adarsh  
+AI & Data Science | Building AI systems for real-world automation  
+Founder @ Haugtun  
+
+---
+
+## 📝 Note
+
+This project is being built as part of the Swiggy Builders Club program.
