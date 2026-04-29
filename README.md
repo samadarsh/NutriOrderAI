@@ -99,11 +99,3 @@ NutriOrder AI integrates with Swiggy’s Model Context Protocol (MCP) to perform
 - Integration with fitness trackers
 
 ---
-
-## 👤 Author
-
-Sam Adarsh
-AI & Data Science | Building AI systems for real-world automation
-Founder @ Haugtun
-
---
