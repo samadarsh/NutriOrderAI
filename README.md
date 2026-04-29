@@ -41,52 +41,50 @@ NutriOrder AI acts as an AI-driven decision layer on top of Swiggy, enabling use
 
 ## ⚙️ Architecture
 
-User → Frontend → AI Agent → Nutrition Scoring Engine → Swiggy MCP → Cart → Confirmation → Order Placement
+User → Frontend → AI Agent → Address Resolution → Swiggy MCP Food Server → Nutrition Scoring → Cart → User Confirmation → Order Placement
 
----
+### Flow:
 
-## 🔄 MCP Integration Flow (Swiggy Food)
+1. User inputs goal (protein, budget, dietary preference)  
+2. AI agent converts input into structured constraints  
+3. Resolve delivery location using:
+   - `get_addresses`  
 
-NutriOrder AI follows the standard Swiggy MCP food ordering workflow:
+4. Discover restaurants:
+   - `search_restaurants`  
 
-1. `get_addresses`  
-   → Resolve user’s delivery location  
+5. Retrieve menu data:
+   - `get_restaurant_menu` / `search_menu`  
 
-2. `search_restaurants`  
-   → Discover relevant restaurants  
+6. AI Processing:
+   - Rank meals based on:
+     - Estimated protein value  
+     - Price  
+     - Delivery time  
+     - User preferences  
 
-3. `get_restaurant_menu` / `search_menu`  
-   → Retrieve available food items  
+7. Build cart:
+   - `update_food_cart`  
 
-4. AI Processing  
-   → Rank items based on:
-   - Estimated protein value  
-   - Price  
-   - User preferences  
+8. Verify cart before ordering:
+   - `get_food_cart`  
 
-5. `update_food_cart`  
-   → Add selected items to cart  
+9. User confirmation step (mandatory)  
 
-6. `get_food_cart`  
-   → Verify cart contents and total price  
+10. Place order safely:
+   - `place_food_order`  
 
-7. User Confirmation  
-   → Explicit confirmation before placing order  
-
-8. `place_food_order`  
-   → Place order safely (non-idempotent)  
-
-9. `track_food_order`  
-   → Track delivery status  
+11. Track order:
+   - `track_food_order`  
 
 ---
 
 ## ⚠️ Compliance & Safety
 
-- Orders are placed **only after user confirmation**  
+- Orders are placed **only after explicit user confirmation**  
 - Cart is always verified before placing an order  
 - Food cart is tied to a single restaurant  
-- No blind retries on order placement  
+- No blind retries on order placement (non-idempotent operation)  
 - COD (Cash on Delivery) supported in v1  
 - Cart value handled within Swiggy Builders limits  
 
@@ -119,16 +117,18 @@ NutriOrder AI integrates with Swiggy’s Model Context Protocol (MCP):
 1. User: “Order me a high-protein dinner under ₹300”  
 2. Agent filters meals based on protein + price  
 3. Ranks optimal choices  
-4. Adds to cart  
+4. Adds item to cart  
 5. Requests user confirmation  
 6. Places order via MCP  
+7. Tracks order status  
 
 ---
 
 ## 📌 Status
 
-🚧 MVP (Minimum Viable Product) in development  
-🔐 Awaiting Swiggy MCP API access for live execution  
+🚧 Currently in MVP development phase  
+🧪 Prototyping against local/staging flow  
+🔐 Production Swiggy MCP access pending approval  
 
 ---
 
