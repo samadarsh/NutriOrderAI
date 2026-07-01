@@ -18,62 +18,99 @@ class NutriOrderPipeline:
         metrics_tracker.reset()  # Reset for UI monitoring purposes if needed
         log_info(f"Starting recommendation pipeline. Input: '{raw_input}'")
 
-        # Stage 1: Intent Parser (uses session inputs or regex if not LLM parsed)
-        intent = self._parse_intent(raw_input, session_constraints)
+        from mcp.mcp_client import SwiggyAuthError, SwiggyMCPError
 
-        # Stage 2: Nutrition Planner (merges with user memory and history)
-        planned_profile = self._plan_nutrition(intent)
+        try:
+            # Resolve address ID early
+            address_id = self._resolve_address_id()
 
-        # Stage 3: Candidate Generation & Fallback Management
-        candidates, fallback_warnings = self._generate_candidates_with_fallback(planned_profile)
+            # Stage 1: Intent Parser (uses session inputs or regex if not LLM parsed)
+            intent = self._parse_intent(raw_input, session_constraints)
 
-        # Stage 4: Constraint Validation (Allergies, Dislikes, hard constraints)
-        valid_candidates = self._validate_constraints(candidates, planned_profile)
+            # Stage 2: Nutrition Planner (merges with user memory and history)
+            planned_profile = self._plan_nutrition(intent)
+            planned_profile["addressId"] = address_id
 
-        # Stage 5: Ranking Engine (weighted multi-factor scores + explanations)
-        ranked = self.ranker.rank_meals(valid_candidates, planned_profile)
+            # Stage 3: Candidate Generation & Fallback Management
+            candidates, fallback_warnings = self._generate_candidates_with_fallback(planned_profile)
 
-        pipeline_duration = time.time() - start_time
-        metrics_tracker.record_latency("recommendation_pipeline", pipeline_duration)
-        log_info(f"Pipeline completed in {pipeline_duration:.2f}s. Candidates: {len(ranked)}")
+            # Stage 4: Constraint Validation (Allergies, Dislikes, hard constraints)
+            valid_candidates = self._validate_constraints(candidates, planned_profile)
 
-        if not ranked:
+            # Stage 5: Ranking Engine (weighted multi-factor scores + explanations)
+            ranked = self.ranker.rank_meals(valid_candidates, planned_profile)
+
+            pipeline_duration = time.time() - start_time
+            metrics_tracker.record_latency("recommendation_pipeline", pipeline_duration)
+            log_info(f"Pipeline completed in {pipeline_duration:.2f}s. Candidates: {len(ranked)}")
+
+            if not ranked:
+                metrics_tracker.record_recommendation(success=False)
+                return {
+                    "success": False,
+                    "message": "No meals matched your protein and dietary filters even after constraint relaxation.",
+                    "fallback_warnings": fallback_warnings
+                }
+
+            # Stage 6: Select Best Recommendation and generate cart preview
+            best_meal = ranked[0]
+            
+            # Prepare mock/real cart (we try to call the MCP update_food_cart tool)
+            cart_preview = None
+            cart_state = None
+            
+            # We call caching or client directly using aligned Swiggy parameters
+            cart_preview = self._execute_mcp_call(
+                "update_food_cart",
+                {
+                    "restaurantId": best_meal["restaurant_id"], 
+                    "cartItems": [{"itemId": best_meal["item_id"], "quantity": 1}],
+                    "addressId": address_id,
+                    "restaurantName": best_meal["restaurant_name"]
+                }
+            )
+            cart_state = self._execute_mcp_call(
+                "get_food_cart", 
+                {
+                    "addressId": address_id,
+                    "restaurantName": best_meal["restaurant_name"]
+                }
+            )
+
+            metrics_tracker.record_recommendation(success=True)
+            return {
+                "success": True,
+                "constraints": planned_profile,
+                "recommendation": best_meal,
+                "recommendations": ranked[:5],  # top 5 options
+                "cart_preview": cart_preview,
+                "cart_state": cart_state,
+                "fallback_warnings": fallback_warnings,
+                "metrics": metrics_tracker.get_metrics_summary()
+            }
+
+        except SwiggyAuthError as e:
+            log_error(f"Authentication error in pipeline: {str(e)}", error_category="unauthenticated")
             metrics_tracker.record_recommendation(success=False)
             return {
                 "success": False,
-                "message": "No meals matched your protein and dietary filters even after constraint relaxation.",
-                "fallback_warnings": fallback_warnings
+                "auth_required": True,
+                "message": f"Your Swiggy login session has expired. Please re-authenticate. (Details: {str(e)})"
             }
-
-        # Stage 6: Select Best Recommendation and generate cart preview
-        best_meal = ranked[0]
-        
-        # Prepare mock/real cart (we try to call the MCP update_food_cart tool)
-        cart_preview = None
-        cart_state = None
-        
-        try:
-            # We call caching or client directly
-            cart_preview = self._execute_mcp_call(
-                "update_food_cart",
-                {"restaurantId": best_meal["restaurant_id"], "items": [{"itemId": best_meal["item_id"], "quantity": 1}]}
-            )
-            cart_state = self._execute_mcp_call("get_food_cart", {})
+        except SwiggyMCPError as e:
+            log_error(f"MCP error in pipeline: {str(e)}", error_category="upstream_error")
+            metrics_tracker.record_recommendation(success=False)
+            return {
+                "success": False,
+                "message": f"Swiggy API Error: {str(e)}"
+            }
         except Exception as e:
-            log_error(f"Failed to update cart: {str(e)}", error_category="upstream_error")
-            cart_preview = {"error": "Failed to update food cart"}
-
-        metrics_tracker.record_recommendation(success=True)
-        return {
-            "success": True,
-            "constraints": planned_profile,
-            "recommendation": best_meal,
-            "recommendations": ranked[:5],  # top 5 options
-            "cart_preview": cart_preview,
-            "cart_state": cart_state,
-            "fallback_warnings": fallback_warnings,
-            "metrics": metrics_tracker.get_metrics_summary()
-        }
+            log_error(f"Unexpected error in pipeline: {str(e)}", error_category="internal_error")
+            metrics_tracker.record_recommendation(success=False)
+            return {
+                "success": False,
+                "message": f"An unexpected error occurred: {str(e)}"
+            }
 
     def _parse_intent(self, raw_input: str, session_constraints: Dict[str, Any]) -> Dict[str, Any]:
         """Parses the raw text intent or uses pre-parsed constraints."""
@@ -122,7 +159,7 @@ class NutriOrderPipeline:
 
     def _generate_candidates_with_fallback(self, profile: Dict[str, Any]) -> Tuple[List[Dict[str, Any]], List[str]]:
         """Candidate generator with intelligent fallback logic."""
-        address_id = self._resolve_address_id()
+        address_id = profile.get("addressId") or self._resolve_address_id()
         query = profile.get("query", "meal")
         
         candidates: List[Dict[str, Any]] = []
@@ -154,7 +191,10 @@ class NutriOrderPipeline:
                 # Fetch menus for the top 3 restaurants
                 top_restaurants = restaurants[:3] if isinstance(restaurants, list) else []
                 for rest in top_restaurants:
-                    menu = self._execute_mcp_call("get_restaurant_menu", {"restaurantId": rest["id"]})
+                    menu = self._execute_mcp_call(
+                        "get_restaurant_menu", 
+                        {"addressId": address_id, "restaurantId": rest["id"]}
+                    )
                     for item in menu:
                         # Append restaurant details
                         candidates.append({

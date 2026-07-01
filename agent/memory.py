@@ -100,12 +100,17 @@ class UserMemoryManager:
         merged = dict(self.profile)
         
         # Override with session values if they are active
-        if session_constraints.get("budget_max_rs"):
-            merged["typical_budget"] = session_constraints["budget_max_rs"]
-        if session_constraints.get("protein_target_g"):
-            merged["target_protein"] = session_constraints["protein_target_g"]
-        if session_constraints.get("user_goal"):
-            goal = session_constraints["user_goal"].lower()
+        budget = session_constraints.get("budget_max_rs") or session_constraints.get("budget")
+        if budget:
+            merged["typical_budget"] = budget
+            
+        protein = session_constraints.get("protein_target_g") or session_constraints.get("protein_goal")
+        if protein:
+            merged["target_protein"] = protein
+            
+        goal_text = session_constraints.get("user_goal") or session_constraints.get("query")
+        if goal_text:
+            goal = goal_text.lower()
             if "muscle" in goal or "bulk" in goal:
                 merged["fitness_goal"] = "muscle_gain"
             elif "fat" in goal or "weight loss" in goal or "lean" in goal or "diet" in goal:
@@ -123,8 +128,18 @@ class UserMemoryManager:
         # Include session preferences in preferences array
         session_prefs = session_constraints.get("preferences", [])
         if isinstance(session_prefs, list):
-            # Combine long-term preferences with session preferences
             combined_prefs = list(set(self.profile.get("preferences", []) + session_prefs))
             merged["preferences"] = combined_prefs
+
+        # Propagate query, dislikes, and allergies
+        merged["query"] = session_constraints.get("query") or session_constraints.get("user_goal") or "high protein"
+        
+        session_dislikes = session_constraints.get("dislikes", [])
+        if session_dislikes:
+            merged["dislikes"] = list(set(self.profile.get("dislikes", []) + session_dislikes))
+            
+        session_allergies = session_constraints.get("allergies", [])
+        if session_allergies:
+            merged["allergies"] = list(set(self.profile.get("allergies", []) + session_allergies))
 
         return merged

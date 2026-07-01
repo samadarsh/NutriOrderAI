@@ -17,6 +17,6 @@ class Settings:
 def get_settings() -> Settings:
     return Settings(
         use_mock_mcp=os.getenv("USE_MOCK_MCP", "true").lower() == "true",
-        swiggy_base_url=os.getenv("SWIGGY_BASE_URL", "https://mcp.swiggy.com/food"),
+        swiggy_base_url=os.getenv("SWIGGY_BASE_URL", "https://mcp-staging.swiggy.com/food"),
         swiggy_token=os.getenv("SWIGGY_TOKEN", ""),
     )

@@ -1,12 +1,16 @@
+from typing import Any, Dict, List, Optional
+from mcp.mcp_client import SwiggyMCPError, SwiggyAuthError
+
 class MockSwiggyFoodMCP:
     def __init__(self) -> None:
-        self._cart = {"restaurant_id": None, "items": []}
-        self._orders: dict[str, dict] = {}
+        self._cart = {"restaurantId": None, "cartItems": [], "restaurantName": None}
+        self._orders: Dict[str, Dict[str, Any]] = {}
         self._restaurants = [
             {
                 "id": "rest_1",
                 "name": "Protein Bowl Co",
                 "delivery_time_min": 28,
+                "rating": 4.5,
                 "menu": [
                     {
                         "id": "item_1",
@@ -28,6 +32,7 @@ class MockSwiggyFoodMCP:
                 "id": "rest_2",
                 "name": "Lean Meal Hub",
                 "delivery_time_min": 34,
+                "rating": 4.2,
                 "menu": [
                     {
                         "id": "item_3",
@@ -49,6 +54,7 @@ class MockSwiggyFoodMCP:
                 "id": "rest_3",
                 "name": "Fit Feast Kitchen",
                 "delivery_time_min": 41,
+                "rating": 4.6,
                 "menu": [
                     {
                         "id": "item_5",
@@ -68,7 +74,7 @@ class MockSwiggyFoodMCP:
             },
         ]
 
-    def get_addresses(self) -> list[dict]:
+    def get_addresses(self) -> List[Dict[str, Any]]:
         return [
             {
                 "id": "addr_home",
@@ -77,118 +83,101 @@ class MockSwiggyFoodMCP:
             }
         ]
 
-    def search_restaurants(self, address_id: str = None, query: str = None, addressId: str = None) -> list[dict]:
-        addr = addressId or address_id
-        _ = addr
-        _ = query
-        return [
-            {
-                "id": restaurant["id"],
-                "name": restaurant["name"],
-                "delivery_time_min": restaurant["delivery_time_min"],
-                "rating": restaurant.get("rating", 4.3),
-                "availabilityStatus": "OPEN"
-            }
-            for restaurant in self._restaurants
-        ]
+    def search_restaurants(self, addressId: str, query: str, offset: Optional[int] = None) -> List[Dict[str, Any]]:
+        _ = addressId
+        normalized = query.lower() if query else ""
+        if "impossible" in normalized:
+            return []
+            
+        matches = []
+        for rest in self._restaurants:
+            # If empty query or keyword match, return it
+            if not normalized or normalized in rest["name"].lower() or "protein" in normalized or "meal" in normalized or "chicken" in normalized or "salad" in normalized:
+                matches.append({
+                    "id": rest["id"],
+                    "name": rest["name"],
+                    "delivery_time_min": rest["delivery_time_min"],
+                    "rating": rest.get("rating", 4.3),
+                    "availabilityStatus": "OPEN"
+                })
+        return matches
 
-    def get_restaurant_menu(self, restaurant_id: str = None, restaurantId: str = None) -> list[dict]:
-        rest_id = restaurantId or restaurant_id
+    def get_restaurant_menu(self, addressId: str, restaurantId: str, page: Optional[int] = None, pageSize: Optional[int] = None) -> List[Dict[str, Any]]:
+        _ = addressId
         for restaurant in self._restaurants:
-            if restaurant["id"] == rest_id:
+            if restaurant["id"] == restaurantId:
                 return restaurant["menu"]
         return []
 
-    def search_menu(self, *args, **kwargs) -> list[dict]:
-        # Handle both signatures:
-        # 1. search_menu(restaurant_id, query)
-        # 2. search_menu(addressId, query, vegFilter=0, ...)
-        restaurant_id = kwargs.get("restaurant_id")
-        address_id = kwargs.get("addressId") or kwargs.get("address_id")
-        query = kwargs.get("query")
-        veg_filter = kwargs.get("vegFilter", 0)
-
-        # Handle positional args if any
-        if args:
-            if len(args) == 2:
-                if str(args[0]).startswith("rest_"):
-                    restaurant_id = args[0]
-                    query = args[1]
-                else:
-                    address_id = args[0]
-                    query = args[1]
-            elif len(args) == 1:
-                query = args[0]
-
+    def search_menu(self, addressId: str, query: str, restaurantIdOfAddedItem: Optional[str] = None, vegFilter: Optional[int] = None, offset: Optional[int] = None) -> List[Dict[str, Any]]:
         normalized_query = query.lower() if query else ""
-
         results = []
-        if restaurant_id:
-            for item in self.get_restaurant_menu(restaurant_id):
+        
+        for rest in self._restaurants:
+            # If scoped to a specific restaurant
+            if restaurantIdOfAddedItem and rest["id"] != restaurantIdOfAddedItem:
+                continue
+                
+            for item in rest["menu"]:
                 if normalized_query in item["name"].lower():
-                    results.append(item)
-        else:
-            for rest in self._restaurants:
-                for item in rest["menu"]:
-                    if normalized_query in item["name"].lower():
-                        if veg_filter == 1 and item.get("dietary_preference") != "veg":
-                            continue
-                        item_copy = dict(item)
-                        item_copy["restaurant_id"] = rest["id"]
-                        item_copy["restaurant_name"] = rest["name"]
-                        item_copy["delivery_time_min"] = rest["delivery_time_min"]
-                        item_copy["availabilityStatus"] = "OPEN"
-                        results.append(item_copy)
+                    if vegFilter == 1 and item.get("dietary_preference") != "veg":
+                        continue
+                    item_copy = dict(item)
+                    item_copy["restaurant_id"] = rest["id"]
+                    item_copy["restaurant_name"] = rest["name"]
+                    item_copy["delivery_time_min"] = rest["delivery_time_min"]
+                    item_copy["availabilityStatus"] = "OPEN"
+                    results.append(item_copy)
         return results
 
-    def update_food_cart(self, restaurant_id: str = None, items: list[dict] = None, restaurantId: str = None) -> dict:
-        rest_id = restaurantId or restaurant_id
+    def update_food_cart(self, restaurantId: str, cartItems: List[Dict[str, Any]], addressId: str, restaurantName: Optional[str] = None) -> Dict[str, Any]:
         self._cart = {
-            "restaurant_id": rest_id,
-            "items": items,
-            "message": "Mock cart updated successfully.",
+            "restaurantId": restaurantId,
+            "cartItems": cartItems,
+            "addressId": addressId,
+            "restaurantName": restaurantName or "Mock Restaurant",
+            "message": "Mock cart updated successfully."
         }
         return dict(self._cart)
 
-    def get_food_cart(self) -> dict:
+    def get_food_cart(self, addressId: str, restaurantName: Optional[str] = None) -> Dict[str, Any]:
+        _ = addressId
+        _ = restaurantName
         return dict(self._cart)
 
-    def place_food_order(self, user_confirmed: bool) -> dict:
-        if not user_confirmed:
-            return {
-                "success": False,
-                "message": "Mock order was not placed because user confirmation was missing.",
-            }
+    def get_food_orders(self, addressId: str, orderCount: Optional[int] = None) -> List[Dict[str, Any]]:
+        _ = addressId
+        # Return registered mock orders sorted by creation time
+        sorted_orders = sorted(self._orders.values(), key=lambda o: o.get("timestamp", 0), reverse=True)
+        if orderCount:
+            return sorted_orders[:orderCount]
+        return sorted_orders
 
-        if not self._cart["items"]:
-            return {
-                "success": False,
-                "message": "Mock order was not placed because the cart is empty.",
-            }
+    def place_food_order(self, addressId: str, paymentMethod: Optional[str] = "COD") -> Dict[str, Any]:
+        if not self._cart.get("cartItems"):
+            raise SwiggyMCPError("Mock order was not placed because the cart is empty.")
 
-        order_id = f"mock_order_{len(self._orders) + 1}"
+        import time
+        orderId = f"mock_order_{len(self._orders) + 1}"
         order = {
-            "success": True,
-            "order_id": order_id,
+            "orderId": orderId,
             "status": "confirmed",
             "message": "Mock order confirmed. No real Swiggy order was placed.",
             "cart": dict(self._cart),
+            "paymentMethod": paymentMethod,
+            "addressId": addressId,
+            "timestamp": time.time()
         }
-        self._orders[order_id] = order
+        self._orders[orderId] = order
         return order
 
-    def track_food_order(self, order_id: str = None, orderId: str = None) -> dict:
-        ord_id = orderId or order_id
-        order = self._orders.get(ord_id)
+    def track_food_order(self, orderId: str) -> Dict[str, Any]:
+        order = self._orders.get(orderId)
         if not order:
-            return {
-                "success": False,
-                "message": "Mock order not found.",
-                "order_id": ord_id,
-            }
+            raise SwiggyMCPError(f"Mock order not found: {orderId}")
+
         return {
-            "success": True,
-            "order_id": ord_id,
+            "orderId": orderId,
             "status": order["status"],
             "message": "Mock tracking response. No real delivery is in progress.",
         }

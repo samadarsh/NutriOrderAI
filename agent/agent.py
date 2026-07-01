@@ -46,30 +46,89 @@ class NutriOrderAgent:
         # Run pipeline with the user query
         return self.pipeline.run_pipeline(user_goal, session_constraints)
 
+    def recommend_meal_from_json(self, json_data: dict) -> Dict[str, Any]:
+        """Adapts the voice JSON contract payload directly into internal recommendation constraints."""
+        from voice_interface.intent_parser import validate_food_order_intent
+        validated = validate_food_order_intent(json_data)
+        
+        # Parse preferences:
+        # - Exclusions like "no spicy" go to dislikes
+        # - Positive keywords form the search query
+        prefs = validated.get("preferences", [])
+        query_keywords = []
+        dislikes = []
+        
+        for pref in prefs:
+            pref_lower = pref.lower().strip()
+            if pref_lower.startswith("no ") or "exclude" in pref_lower or "without" in pref_lower:
+                item = pref_lower.replace("no ", "").replace("exclude", "").replace("without", "").strip()
+                if item:
+                    dislikes.append(item)
+            else:
+                query_keywords.append(pref)
+                
+        query = " ".join(query_keywords) if query_keywords else "high protein"
+        
+        session_constraints = {
+            "user_goal": query,
+            "protein_target_g": validated.get("protein_goal", 30),
+            "budget_max_rs": validated.get("budget", 300),
+            "max_delivery_time_min": validated.get("delivery_time", 45),
+            "dietary_preference": "any",
+            "preferences": query_keywords,
+            "dislikes": dislikes
+        }
+        
+        # Save dislikes to memory
+        for d in dislikes:
+            self.memory.add_dislike(d)
+            
+        return self.pipeline.run_pipeline(query, session_constraints)
+
     def confirm_order(self, latest_result: Dict[str, Any]) -> Dict[str, Any]:
         """Safety-wrapped order confirmation utilizing status checks to prevent duplicate placement."""
         if not latest_result.get("success"):
             return {"success": False, "message": "No valid recommendation is available to confirm."}
 
         rec = latest_result["recommendation"]
+        price = rec.get("price", 0)
+        
+        # Block cart totals >= Rs 1000 (Safety check)
+        if price >= 1000:
+            return {
+                "success": False,
+                "message": f"Order placement blocked. Cart total of Rs {price} exceeds the Swiggy Builders Club cap of Rs 1000."
+            }
+
+        # Resolve addressId
+        address_id = latest_result.get("constraints", {}).get("addressId") or "addr_home"
 
         # Call safety placing wrapper
         def place_fn():
-            return self.mcp.place_food_order(user_confirmed=True)
+            # Real/Mock MCP call using aligned Swiggy parameters
+            res = self.mcp.place_food_order(addressId=address_id, paymentMethod="COD")
+            return {
+                "success": True,
+                "order_id": res.get("orderId") or res.get("order_id"),
+                "status": res.get("status", "confirmed"),
+                "message": res.get("message", "Order placed successfully.")
+            }
 
         def check_fn():
-            # In mock or real, get recent active orders
             try:
-                orders_res = self.mcp.get_food_orders()
-                # Sort out or list dicts
-                return orders_res if isinstance(orders_res, list) else []
-            except NotImplementedError:
-                # If real client fails stub check
-                return []
+                orders = self.mcp.get_food_orders(addressId=address_id)
+                return [
+                    {
+                        "order_id": o.get("orderId") or o.get("order_id"),
+                        "status": o.get("status"),
+                        "is_recent": True
+                    }
+                    for o in orders
+                ]
             except Exception:
                 return []
 
-        # Safely execute
+        # Safely execute without blind retry on place_food_order
         order_response = place_order_safely(place_order_fn=place_fn, check_status_fn=check_fn)
         
         if not order_response.get("success"):
@@ -81,14 +140,15 @@ class NutriOrderAgent:
             restaurant_name=rec.get("restaurant_name", "unknown"),
             item_id=rec.get("item_id", "unknown"),
             item_name=rec.get("item_name", "unknown"),
-            price=float(rec.get("price", 0.0))
+            price=float(price)
         )
 
         tracking = {}
         try:
             order_id = order_response.get("order_id")
             if order_id:
-                tracking = self.mcp.track_food_order(order_id)
+                track_res = self.mcp.track_food_order(orderId=order_id)
+                tracking = track_res
         except Exception:
             pass
 

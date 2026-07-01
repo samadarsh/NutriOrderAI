@@ -179,6 +179,18 @@ def main() -> None:
                 time.sleep(0.5)
                 st.rerun()
 
+            st.markdown("---")
+            st.markdown("### 🔑 Swiggy OAuth Staging Token")
+            st.caption("Needed for staging integration. Expires in 5 days.")
+            token_input = st.text_input("SWIGGY_TOKEN", value=os.environ.get("SWIGGY_TOKEN", ""), type="password")
+            
+            if st.button("Save Staging Token"):
+                os.environ["SWIGGY_TOKEN"] = token_input
+                agent.mcp.token = token_input
+                st.success("Staging token updated!")
+                time.sleep(0.5)
+                st.rerun()
+
         # Multi-modal Voice / Text input
         input_mode = st.radio("Input mode", options=["Text Prompt", "Voice Input (Upload Audio)"], horizontal=True)
         
@@ -249,15 +261,20 @@ def main() -> None:
         
         if submitted:
             with st.spinner("Executing recommendation pipeline..."):
-                result = agent.recommend_meal(
-                    user_goal=user_goal,
-                    protein_target_g=int(protein_target),
-                    budget_max_rs=int(budget_max),
-                    max_delivery_time_min=int(max_delivery_time),
-                    dietary_preference=dietary_preference,
-                )
+                if input_mode == "Voice Input (Upload Audio)" and voice_intent:
+                    result = agent.recommend_meal_from_json(voice_intent)
+                else:
+                    result = agent.recommend_meal(
+                        user_goal=user_goal,
+                        protein_target_g=int(protein_target),
+                        budget_max_rs=int(budget_max),
+                        max_delivery_time_min=int(max_delivery_time),
+                        dietary_preference=dietary_preference,
+                    )
 
             if not result["success"]:
+                if result.get("auth_required"):
+                    st.warning("🔑 Your Swiggy session has expired or is unauthenticated. Please paste a fresh staging token in the sidebar and click 'Save Staging Token' to re-authenticate.")
                 st.error(result["message"])
                 if result.get("fallback_warnings"):
                     for w in result["fallback_warnings"]:

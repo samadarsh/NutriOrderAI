@@ -169,27 +169,48 @@ This repository currently focuses on:
 5. User reviews the recommendation  
 6. Live MCP ordering can be added in the next phase  
 
----
+## 📌 Project Status & Setup
 
-## 📌 Status
+* **Onboarding Status**: Approved for Swiggy Builders Club! Onboarding legal request form has been submitted, and we are currently awaiting integration agreement paperwork and staging credentials.
+* **Default Mode**: Runs in **Mock Mode** (`USE_MOCK_MCP=true`) out-of-the-box using the aligned local mock client.
 
-- 🚧 Currently in MVP development phase  
-- 🧪 Prototyping against a local mock flow  
-- 🔐 Production Swiggy MCP access is still pending approval  
+### ⚙️ Environment Variables (`.env`)
+Create a `.env` file in the root directory to configure the application:
+```ini
+# MCP Modes
+USE_MOCK_MCP=true              # Set to false to connect to staging
+
+# Staging API Configuration
+SWIGGY_BASE_URL=https://mcp-staging.swiggy.com/food
+SWIGGY_TOKEN=your_oauth_token   # Swiggy temporary OAuth bearer token (valid 5 days)
+
+# LLM Parser Settings
+GROQ_API_KEY=gsk_your_api_key  # Required for voice transcription/intent parsing
+GROQ_MODEL=llama-3.1-8b-instant
+```
+
+### 🔑 Staging Integration Setup
+1. Toggle `USE_MOCK_MCP=false` in your `.env`.
+2. Generate your Swiggy temporary OAuth bearer token (expires in 5 days).
+3. Paste the token into the `SWIGGY_TOKEN` field in your `.env` or input it in the Streamlit Sidebar directly.
+4. Run the Streamlit application to query the live Swiggy MCP Staging endpoint at `https://mcp-staging.swiggy.com/food`.
+
+### ⚠️ Stricter Safety Warning (No Production Orders)
+* This codebase **never** places real production orders.
+* The order placement tool `place_food_order` is strictly locked in production and is only enabled when `SWIGGY_ENV` is set to `staging` and `ALLOW_PLACE_ORDER` is `true`.
+* Swiggy Builders Club staging orders are hard-capped at **₹1,000** and only support **Cash On Delivery (COD)**.
 
 ---
 
 ## 🔮 Future Improvements
 
-- 🔌 Real Swiggy MCP client integration  
-- 🛒 Cart review and confirmation UI  
-- 🛍️ Instamart integration  
-- 📊 Macro tracking for protein, carbs, and fats  
-- 👤 Personalized diet profiles  
-- ⌚ Integration with fitness apps  
+- 🛍️ Instamart integration (groceries)
+- 📊 Macro tracking for protein, carbs, and fats
+- 👤 Personalized diet profiles and fitness app syncing
+- 🔗 Auto-refresh token management
 
 ---
 
 ## 📝 Note
 
-This project is being built as part of the Swiggy Builders Club program.
+This project is being built as part of the Swiggy Builders Club program. All order tools operate under strict developer sandbox regulations.
