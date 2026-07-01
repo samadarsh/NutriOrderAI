@@ -1,6 +1,11 @@
 # NutriOrder AI 🥗
 
-AI-powered nutrition-aware food ordering agent that recommends high-protein meals based on user goals, budget, and preferences, and places confirmed orders through Swiggy MCP.
+An AI-powered nutrition-aware food ordering agent that recommends high-protein meals based on user goals, budget, and preferences.
+
+> [!IMPORTANT]
+> This repository contains two components:
+> 1. **NutriOrder MCP Lab** (Streamlit): Located in the root folder, this is a local sandbox used for mock testing and staging validation of the Swiggy MCP integration.
+> 2. **Production Web Application**: Located in `backend/` and `frontend/`, this is the scaffolding for the multi-user production-grade architecture featuring backend-owned Swiggy OAuth, durable database storage, and a strict order safety state machine.
 
 ---
 

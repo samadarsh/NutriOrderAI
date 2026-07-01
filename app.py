@@ -111,7 +111,7 @@ def render_confirmation_result(result: dict) -> None:
 
 
 def main() -> None:
-    st.set_page_config(page_title="NutriOrder AI", page_icon="🥗", layout="wide")
+    st.set_page_config(page_title="NutriOrder MCP Lab", page_icon="🥗", layout="wide")
     st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
 
     settings = get_settings()
@@ -121,8 +121,8 @@ def main() -> None:
         st.session_state["agent"] = NutriOrderAgent(settings=settings)
     agent = st.session_state["agent"]
 
-    st.title("🥗 NutriOrder AI")
-    st.caption("Production-Ready Goal-Driven Nutrition and Food Ordering Assistant powered by Swiggy MCP.")
+    st.title("🥗 NutriOrder MCP Lab")
+    st.caption("Staging & Mock Validation Sandbox for Swiggy MCP Integration.")
 
     # Main columns
     col_input, col_output = st.columns([1.1, 1.2])
