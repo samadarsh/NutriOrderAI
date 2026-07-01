@@ -63,7 +63,8 @@ async def search_recommendations(
         results = pipeline.run_pipeline(
             raw_input=query,
             session_constraints={"addressId": address_id},
-            address_id=address_id
+            address_id=address_id,
+            skip_cart_update=True
         )
         
         # 5. Save query and transition status to RECOMMENDATIONS_READY

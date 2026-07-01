@@ -1,145 +1,302 @@
 'use client';
 
-import React, { useState } from "react";
-
-// Mock Data
-const SAVED_ADDRESSES = [
-  { id: "addr_home", label: "🏠 Home", text: "Flat 402, Green Glen Layout, Outer Ring Road, Bengaluru", tag: "Primary" },
-  { id: "addr_office", label: "💼 Office", text: "Tower B, Prestige Tech Park, Marathahalli, Bengaluru", tag: "Work" },
-  { id: "addr_gym", label: "💪 Gym", text: "Cult Fit HSR Layout, Sector 4, Bengaluru", tag: "Secondary" }
-];
-
-const MEAL_RECOMMENDATIONS = [
-  {
-    id: "meal_1",
-    name: "High Protein Grilled Chicken & Quinoa Bowl",
-    restaurant: "The Protein Station",
-    price: 320,
-    eta: "25 mins",
-    protein: "42g",
-    calories: "520 kcal",
-    score: 98,
-    reasons: [
-      "Protein content (42g) exceeds your 35g minimum target.",
-      "Calorie count (520) is within your 650 kcal target.",
-      "Contains no active allergens (Gluten-Free, Dairy-Free)."
-    ]
-  },
-  {
-    id: "meal_2",
-    name: "Soya Chaap Tikka Biryani (Brown Rice)",
-    restaurant: "Healthy Kitchens",
-    price: 245,
-    eta: "30 mins",
-    protein: "32g",
-    calories: "580 kcal",
-    score: 89,
-    reasons: [
-      "High protein vegetarian alternative.",
-      "Prepared with brown rice to fit fiber targets.",
-      "Fills 90% of your protein goal."
-    ]
-  },
-  {
-    id: "meal_3",
-    name: "Paneer & Broccoli Salad with Flaxseeds",
-    restaurant: "Salad Days",
-    price: 289,
-    eta: "20 mins",
-    protein: "28g",
-    calories: "450 kcal",
-    score: 85,
-    reasons: [
-      "Low carb alternative fitting your fat loss goal.",
-      "Excellent micronutrient balance with flaxseeds.",
-      "Quickest delivery time (20 mins)."
-    ]
-  }
-];
+import React, { useState, useEffect } from "react";
+import { api, UserProfile, Address, RecommendationMeal, CartInfo } from "../lib/api";
 
 export default function NutriOrderDashboard() {
-  // Navigation & Ordering Flow States
+  // Authentication & Initialization
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [authLoading, setAuthLoading] = useState<boolean>(false);
+  const [initializing, setInitializing] = useState<boolean>(true);
+
+  // DB-Backed Core States
+  const [addresses, setAddresses] = useState<Address[]>([]);
   const [selectedAddress, setSelectedAddress] = useState<string>("");
-  const [fitnessGoal, setFitnessGoal] = useState<string>("muscle_gain");
+  
+  // Profile targets matching backend model
+  const [fitnessGoal, setFitnessGoal] = useState<string>("maintenance");
   const [proteinTarget, setProteinTarget] = useState<number>(35);
   const [calorieTarget, setCalorieTarget] = useState<number>(650);
   const [allergies, setAllergies] = useState<string[]>([]);
+  const [dislikes, setDislikes] = useState<string[]>([]);
+  const [favCuisines, setFavCuisines] = useState<string[]>([]);
+  const [dietPreference, setDietPreference] = useState<string>("any");
+
+  // Session & Recommendation States
+  const [activeSessionId, setActiveSessionId] = useState<string>("");
+  const [sessionStatus, setSessionStatus] = useState<string>("START");
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [searchLoading, setSearchLoading] = useState<boolean>(false);
-  const [recommendations, setRecommendations] = useState<any[]>([]);
-  const [selectedMeal, setSelectedMeal] = useState<any>(null);
+  const [recommendations, setRecommendations] = useState<RecommendationMeal[]>([]);
+  const [selectedMeal, setSelectedMeal] = useState<RecommendationMeal | null>(null);
+  
+  // Cart & Place States
+  const [cartPreview, setCartPreview] = useState<CartInfo | null>(null);
+  const [cartLoading, setCartLoading] = useState<boolean>(false);
   const [checkoutConfirmed, setCheckoutConfirmed] = useState<boolean>(false);
   const [orderPlacing, setOrderPlacing] = useState<boolean>(false);
   const [placedOrderId, setPlacedOrderId] = useState<string>("");
   const [trackingStep, setTrackingStep] = useState<number>(0);
+  const [trackingIntervalId, setTrackingIntervalId] = useState<ReturnType<typeof setInterval> | null>(null);
 
-  // Auth Handler Simulation
-  const handleSwiggyLogin = () => {
-    setAuthLoading(true);
-    setTimeout(() => {
-      setIsAuthenticated(true);
-      setAuthLoading(false);
-    }, 1200);
+  const loadProfileFields = (prof: UserProfile) => {
+    setFitnessGoal(prof.fitness_goal);
+    setProteinTarget(prof.protein_target);
+    setCalorieTarget(prof.calorie_target);
+    setDietPreference(prof.diet_preference || "any");
+    setAllergies(prof.allergies || []);
+    setDislikes(prof.dislikes || []);
+    setFavCuisines(prof.favorite_cuisines || []);
   };
 
-  // Search Recommendation Pipeline Simulation
-  const handleQuerySearch = (e: React.FormEvent) => {
+  const refreshAddresses = async () => {
+    try {
+      const addrs = await api.getAddresses();
+      setAddresses(addrs);
+    } catch (err) {
+      console.error("Failed to load addresses", err);
+    }
+  };
+
+  // Check auth session on mount
+  useEffect(() => {
+    async function checkAuth() {
+      try {
+        const prof = await api.getProfile();
+        setIsAuthenticated(true);
+        loadProfileFields(prof);
+        await refreshAddresses();
+      } catch {
+        // Not authenticated
+        setIsAuthenticated(false);
+      } finally {
+        setInitializing(false);
+      }
+    }
+    checkAuth();
+  }, []);
+
+  // Demo Login handler
+  const handleDemoLogin = async () => {
+    setAuthLoading(true);
+    try {
+      await api.demoLogin();
+      const prof = await api.getProfile();
+      loadProfileFields(prof);
+      await refreshAddresses();
+      setIsAuthenticated(true);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      alert(`Login failed: ${msg}`);
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  // Logout handler
+  const handleLogout = async () => {
+    try {
+      await fetch("http://localhost:8000/auth/logout", { method: "POST", credentials: "include" });
+    } catch {
+      // Ignore
+    }
+    setIsAuthenticated(false);
+    handleReset();
+  };
+
+  // Sync profile edits to backend DB
+  const syncProfileChange = async (
+    goal: string,
+    protein: number,
+    calories: number,
+    allergyList: string[]
+  ) => {
+    if (!isAuthenticated) return;
+    try {
+      await api.updateProfile({
+        fitness_goal: goal,
+        protein_target: protein,
+        calorie_target: calories,
+        diet_preference: dietPreference,
+        allergies: allergyList,
+        dislikes: dislikes,
+        favorite_cuisines: favCuisines
+      });
+    } catch (err) {
+      console.error("Failed to save profile modifications", err);
+    }
+  };
+
+  // Address Selection -> Starts DB Order Session
+  const handleAddressSelect = async (addrId: string) => {
+    setSelectedAddress(addrId);
+    try {
+      const sess = await api.startOrderSession();
+      const boundSess = await api.selectAddress(sess.session_id, addrId);
+      setActiveSessionId(sess.session_id);
+      setSessionStatus(boundSess.status);
+      
+      // Reset subsequent flow items
+      setRecommendations([]);
+      setSelectedMeal(null);
+      setCartPreview(null);
+      setCheckoutConfirmed(false);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      alert(`Failed to start session: ${msg}`);
+    }
+  };
+
+  // Query Search recommendations from backend
+  const handleQuerySearch = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedAddress) {
-      alert("Please select a delivery address first!");
+    if (!activeSessionId) {
+      alert("Please select a delivery address to start an order session first!");
       return;
     }
     setSearchLoading(true);
-    setTimeout(() => {
-      setRecommendations(MEAL_RECOMMENDATIONS);
+    try {
+      const res = await api.searchRecommendations(activeSessionId, searchQuery);
+      setSessionStatus(res.status);
+      
+      // Map candidates returned from pipeline
+      const rawCandidates = res.results.recommendations || [];
+      const mapped = rawCandidates.map((c) => ({
+        id: c.item_id,
+        name: c.name,
+        restaurant: c.restaurant_name || "Unknown Restaurant",
+        price: c.price,
+        eta: `${c.delivery_time_min} mins`,
+        protein: `${c.protein_g}g`,
+        calories: c.calories ? `${c.calories} kcal` : "N/A",
+        score: c.match_score || 80,
+        reasons: c.explanations || ["Fits nutritional criteria."],
+        restaurant_id: c.restaurant_id,
+        item_id: c.item_id
+      }));
+      
+      setRecommendations(mapped);
       setSelectedMeal(null);
+      setCartPreview(null);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      alert(`Search failed: ${msg}`);
+    } finally {
       setSearchLoading(false);
-    }, 1500);
+    }
   };
 
-  // Order Placement state simulation
-  const handlePlaceOrder = () => {
+  // Meal candidate selected -> Syncs cart with backend
+  const handleMealSelect = async (meal: RecommendationMeal) => {
+    setSelectedMeal(meal);
+    setCartLoading(true);
+    setCheckoutConfirmed(false);
+    try {
+      // 1. Post item selection
+      await api.selectItem(activeSessionId, meal.restaurant_id || "", meal.id);
+      
+      // 2. Sync cart
+      await api.syncCart(activeSessionId);
+      
+      // 3. Review cart
+      const cartInfo = await api.reviewCart(activeSessionId);
+      setCartPreview(cartInfo.cart);
+      setSessionStatus(cartInfo.status);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      alert(`Failed to prepare cart: ${msg}`);
+    } finally {
+      setCartLoading(false);
+    }
+  };
+
+  // Checkout confirmation
+  const handleConfirmCheckbox = async (checked: boolean) => {
+    setCheckoutConfirmed(checked);
+    if (checked && activeSessionId) {
+      try {
+        const res = await api.confirmOrder(activeSessionId);
+        setSessionStatus(res.status);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        alert(`Confirmation failed: ${msg}`);
+        setCheckoutConfirmed(false);
+      }
+    }
+  };
+
+  // Place COD Order execution
+  const handlePlaceOrder = async () => {
     if (!checkoutConfirmed) return;
     setOrderPlacing(true);
-    setTimeout(() => {
-      const orderId = `swiggy_order_${Math.floor(100000 + Math.random() * 900000)}`;
+    try {
+      const res = await api.placeOrder(activeSessionId, true);
+      const orderId = res.order_res?.orderId || res.order_id || `order_mcp_${Math.floor(100000 + Math.random() * 900000)}`;
       setPlacedOrderId(orderId);
-      setOrderPlacing(false);
-      
-      // Start tracking progress bar
+      setSessionStatus(res.status);
+
+      // Start live order tracking simulator
       let step = 0;
       const interval = setInterval(() => {
         step += 1;
         setTrackingStep(step);
         if (step >= 3) clearInterval(interval);
       }, 4000);
-    }, 2000);
+      setTrackingIntervalId(interval);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      alert(`Checkout failed: ${msg}`);
+    } finally {
+      setOrderPlacing(false);
+    }
   };
 
-  // Reset helper
+  // Reset entire workflow helper
   const handleReset = () => {
+    if (trackingIntervalId) {
+      clearInterval(trackingIntervalId);
+      setTrackingIntervalId(null);
+    }
     setSelectedAddress("");
+    setActiveSessionId("");
+    setSessionStatus("START");
+    setSearchQuery("");
     setRecommendations([]);
     setSelectedMeal(null);
+    setCartPreview(null);
     setCheckoutConfirmed(false);
     setPlacedOrderId("");
     setTrackingStep(0);
   };
 
-  // Allergy checkbox helper
-  const toggleAllergy = (allergen: string) => {
-    setAllergies(prev => 
-      prev.includes(allergen) ? prev.filter(a => a !== allergen) : [...prev, allergen]
-    );
+  // Toggle allergies checklist helper
+  const handleAllergyToggle = (allergen: string) => {
+    const nextAllergies = allergies.includes(allergen)
+      ? allergies.filter(a => a !== allergen)
+      : [...allergies, allergen];
+    setAllergies(nextAllergies);
+    syncProfileChange(fitnessGoal, proteinTarget, calorieTarget, nextAllergies);
   };
+
+  if (initializing) {
+    return (
+      <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col items-center justify-center font-sans">
+        <div className="flex flex-col items-center gap-4">
+          <svg className="animate-spin h-10 w-10 text-emerald-400" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+          </svg>
+          <p className="text-sm text-slate-500 font-mono">Initializing staging sandbox...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-emerald-500 selection:text-slate-950">
       {/* Background Glows */}
-      <div className="fixed top-0 left-1/4 w-96 h-96 bg-emerald-500/10 rounded-full blur-[120px] pointer-events-none" />
-      <div className="fixed bottom-0 right-1/4 w-96 h-96 bg-blue-500/10 rounded-full blur-[120px] pointer-events-none" />
+      <div className="fixed top-0 left-1/4 w-96 h-96 bg-emerald-500/5 rounded-full blur-[120px] pointer-events-none" />
+      <div className="fixed bottom-0 right-1/4 w-96 h-96 bg-blue-500/5 rounded-full blur-[120px] pointer-events-none" />
 
       {/* Top Navbar */}
       <header className="border-b border-slate-900 bg-slate-950/80 backdrop-blur-md sticky top-0 z-50">
@@ -149,8 +306,8 @@ export default function NutriOrderDashboard() {
             <span className="text-xl font-bold bg-gradient-to-r from-emerald-400 to-lime-300 bg-clip-text text-transparent">
               NutriOrder AI
             </span>
-            <span className="text-xs bg-emerald-500/10 text-emerald-400 font-semibold px-2 py-0.5 rounded border border-emerald-500/20">
-              Staging Client
+            <span className="text-[10px] bg-emerald-500/10 text-emerald-400 font-semibold px-2 py-0.5 rounded border border-emerald-500/20">
+              Demo Staging
             </span>
           </div>
 
@@ -158,9 +315,9 @@ export default function NutriOrderDashboard() {
             {isAuthenticated ? (
               <div className="flex items-center gap-3">
                 <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
-                <span className="text-sm text-slate-400 font-mono">user_samadarsh</span>
+                <span className="text-xs text-slate-400 font-mono">Demo Session Active</span>
                 <button 
-                  onClick={() => setIsAuthenticated(false)} 
+                  onClick={handleLogout} 
                   className="text-xs text-rose-400 hover:text-rose-300 font-medium px-2 py-1 rounded hover:bg-rose-500/10 transition"
                 >
                   Logout
@@ -168,21 +325,11 @@ export default function NutriOrderDashboard() {
               </div>
             ) : (
               <button 
-                onClick={handleSwiggyLogin}
+                onClick={handleDemoLogin}
                 disabled={authLoading}
                 className="bg-emerald-500 hover:bg-emerald-600 disabled:bg-emerald-800 text-slate-950 font-bold px-4 py-2 rounded-lg text-sm transition shadow-lg shadow-emerald-500/20 flex items-center gap-2"
               >
-                {authLoading ? (
-                  <>
-                    <svg className="animate-spin h-4 w-4 text-slate-950" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                    </svg>
-                    Connecting PKCE...
-                  </>
-                ) : (
-                  <>🔑 Continue with Swiggy</>
-                )}
+                {authLoading ? "Authorizing..." : "🔌 Staging Demo Login"}
               </button>
             )}
           </div>
@@ -201,24 +348,24 @@ export default function NutriOrderDashboard() {
               Welcome to <span className="bg-gradient-to-r from-emerald-400 to-lime-300 bg-clip-text text-transparent">NutriOrder AI</span>
             </h2>
             <p className="text-slate-400 text-sm leading-relaxed">
-              We leverage Swiggy's MCP Staging Lab to scan menus, filter target macros (protein & calories), and place secure, compliant food orders aligned with your goals.
+              We leverage Swiggy&apos;s MCP Staging Lab to scan menus, filter target macros (protein & calories), and place secure, compliant food orders aligned with your goals.
             </p>
             <div className="bg-slate-950/80 border border-slate-800 rounded-xl p-4 w-full text-left flex flex-col gap-2 text-xs text-slate-500">
               <p className="font-semibold text-slate-400 flex items-center gap-1.5">
-                🛡️ Production Standards Active:
+                🛡️ Mock Staging Integration Enabled:
               </p>
               <ul className="list-disc list-inside space-y-1">
                 <li>PKCE secure token storage inside encrypted DB engine.</li>
                 <li>Safe transition checkout state machine locks.</li>
-                <li>Staging-only sandbox environments.</li>
+                <li>Bypasses real OAuth and uses SQLite mocks.</li>
               </ul>
             </div>
             <button 
-              onClick={handleSwiggyLogin}
+              onClick={handleDemoLogin}
               disabled={authLoading}
               className="w-full bg-emerald-500 hover:bg-emerald-600 disabled:bg-emerald-800 text-slate-950 font-bold py-3.5 rounded-xl transition text-base shadow-xl shadow-emerald-500/25 flex items-center justify-center gap-2"
             >
-              {authLoading ? "Initializing OAuth consent..." : "Continue with Swiggy"}
+              {authLoading ? "Initializing Consent..." : "Connect Demo Account"}
             </button>
           </div>
         </main>
@@ -229,10 +376,10 @@ export default function NutriOrderDashboard() {
             <div className="flex justify-between items-start border-b border-slate-800 pb-6">
               <div>
                 <span className="text-xs bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-bold px-2.5 py-1 rounded-full uppercase tracking-wider">
-                  Order Dispatched
+                  Order Dispatching
                 </span>
                 <h2 className="text-2xl font-bold mt-2">Tracking {placedOrderId}</h2>
-                <p className="text-xs text-slate-500 mt-1 font-mono">Staging Transaction ID: {Math.random().toString(36).substr(2, 9)}</p>
+                <p className="text-xs text-slate-500 mt-1 font-mono">Status: {sessionStatus}</p>
               </div>
               <div className="text-right">
                 <p className="text-xs text-slate-400">Estimated Delivery Time</p>
@@ -252,10 +399,9 @@ export default function NutriOrderDashboard() {
                 { label: "Placed", desc: "Sent to Staging MCP" },
                 { label: "Accepted", desc: "Restaurant Confirmed" },
                 { label: "Preparing", desc: "Culinary Macro Check" },
-                { label: "Out for Delivery", desc: "Staging Arrival" }
+                { label: "Arriving", desc: "Staging Arrival" }
               ].map((step, idx) => {
                 const active = trackingStep >= idx;
-                const current = trackingStep === idx;
                 return (
                   <div key={idx} className="flex flex-col items-center text-center">
                     <div className={`h-8 w-8 rounded-full flex items-center justify-center font-bold text-xs border transition duration-500 ${
@@ -316,42 +462,46 @@ export default function NutriOrderDashboard() {
             {/* Step 1: Address Selection */}
             <section className="bg-slate-900/60 backdrop-blur-md border border-slate-800 rounded-xl p-5 shadow-lg flex flex-col gap-4">
               <div className="flex justify-between items-center">
-                <h3 className="text-sm font-bold uppercase tracking-wider text-emerald-400">1. Address Selection</h3>
-                {selectedAddress && <span className="text-[10px] bg-emerald-500/10 text-emerald-400 font-semibold px-2 py-0.5 rounded border border-emerald-500/20">Selected</span>}
+                <h3 className="text-xs font-bold uppercase tracking-wider text-emerald-400">1. Address Selection</h3>
+                {selectedAddress && (
+                  <span className="text-[10px] bg-emerald-500/10 text-emerald-400 font-semibold px-2 py-0.5 rounded border border-emerald-500/20">
+                    Sess: {activeSessionId.substr(-6)}
+                  </span>
+                )}
               </div>
               <div className="flex flex-col gap-3">
-                {SAVED_ADDRESSES.map((addr) => {
-                  const isChosen = selectedAddress === addr.id;
-                  return (
-                    <div 
-                      key={addr.id}
-                      onClick={() => setSelectedAddress(addr.id)}
-                      className={`cursor-pointer border rounded-lg p-3 flex flex-col gap-1 transition ${
-                        isChosen 
-                          ? "bg-slate-950/80 border-emerald-500 shadow-md shadow-emerald-500/5" 
-                          : "bg-slate-950/20 border-slate-800 hover:border-slate-700"
-                      }`}
-                    >
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm font-bold text-slate-300">{addr.label}</span>
-                        <span className={`text-[9px] font-bold px-2 py-0.5 rounded ${
-                          addr.tag === "Primary" 
-                            ? "bg-emerald-500/10 text-emerald-400" 
-                            : addr.tag === "Work" 
-                              ? "bg-blue-500/10 text-blue-400" 
-                              : "bg-slate-800 text-slate-400"
-                        }`}>{addr.tag}</span>
+                {addresses.length === 0 ? (
+                  <p className="text-xs text-slate-500 text-center py-4">No addresses found.</p>
+                ) : (
+                  addresses.map((addr) => {
+                    const isChosen = selectedAddress === addr.id;
+                    return (
+                      <div 
+                        key={addr.id}
+                        onClick={() => handleAddressSelect(addr.id)}
+                        className={`cursor-pointer border rounded-lg p-3 flex flex-col gap-1 transition ${
+                          isChosen 
+                            ? "bg-slate-950/80 border-emerald-500 shadow-md shadow-emerald-500/5" 
+                            : "bg-slate-950/20 border-slate-800 hover:border-slate-700"
+                        }`}
+                      >
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm font-bold text-slate-300">{addr.label}</span>
+                          <span className="text-[9px] font-bold px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400">
+                            Saved Address
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-500 leading-relaxed mt-1">{addr.display_text}</p>
                       </div>
-                      <p className="text-xs text-slate-500 leading-relaxed mt-1">{addr.text}</p>
-                    </div>
-                  );
-                })}
+                    );
+                  })
+                )}
               </div>
             </section>
 
             {/* Step 2: Goal & Preferences Setup */}
             <section className="bg-slate-900/60 backdrop-blur-md border border-slate-800 rounded-xl p-5 shadow-lg flex flex-col gap-5">
-              <h3 className="text-sm font-bold uppercase tracking-wider text-emerald-400">2. Nutritional Profile</h3>
+              <h3 className="text-xs font-bold uppercase tracking-wider text-emerald-400">2. Nutritional Profile</h3>
               
               {/* Fitness Goal Buttons */}
               <div>
@@ -368,16 +518,21 @@ export default function NutriOrderDashboard() {
                         key={goal.id}
                         onClick={() => {
                           setFitnessGoal(goal.id);
+                          let prot = proteinTarget;
+                          let cal = calorieTarget;
                           if (goal.id === "muscle_gain") {
-                            setProteinTarget(40);
-                            setCalorieTarget(750);
+                            prot = 40;
+                            cal = 750;
                           } else if (goal.id === "fat_loss") {
-                            setProteinTarget(30);
-                            setCalorieTarget(500);
+                            prot = 30;
+                            cal = 500;
                           } else {
-                            setProteinTarget(35);
-                            setCalorieTarget(650);
+                            prot = 35;
+                            cal = 650;
                           }
+                          setProteinTarget(prot);
+                          setCalorieTarget(cal);
+                          syncProfileChange(goal.id, prot, cal, allergies);
                         }}
                         className={`text-xs font-semibold py-2 px-1 rounded-lg border transition ${
                           active 
@@ -404,7 +559,11 @@ export default function NutriOrderDashboard() {
                     min="15" 
                     max="60" 
                     value={proteinTarget} 
-                    onChange={(e) => setProteinTarget(Number(e.target.value))}
+                    onChange={(e) => {
+                      const v = Number(e.target.value);
+                      setProteinTarget(v);
+                      syncProfileChange(fitnessGoal, v, calorieTarget, allergies);
+                    }}
                     className="w-full accent-emerald-500 cursor-pointer"
                   />
                 </div>
@@ -419,7 +578,11 @@ export default function NutriOrderDashboard() {
                     min="350" 
                     max="1000" 
                     value={calorieTarget} 
-                    onChange={(e) => setCalorieTarget(Number(e.target.value))}
+                    onChange={(e) => {
+                      const v = Number(e.target.value);
+                      setCalorieTarget(v);
+                      syncProfileChange(fitnessGoal, proteinTarget, v, allergies);
+                    }}
                     className="w-full accent-blue-500 cursor-pointer"
                   />
                 </div>
@@ -434,7 +597,7 @@ export default function NutriOrderDashboard() {
                     return (
                       <button
                         key={allergen}
-                        onClick={() => toggleAllergy(allergen)}
+                        onClick={() => handleAllergyToggle(allergen)}
                         className={`text-xs px-2.5 py-1 rounded-full border transition ${
                           selected 
                             ? "bg-rose-500/10 border-rose-500 text-rose-300" 
@@ -451,7 +614,7 @@ export default function NutriOrderDashboard() {
 
             {/* Step 3: Order Assistant Chat Query */}
             <section className="bg-slate-900/60 backdrop-blur-md border border-slate-800 rounded-xl p-5 shadow-lg flex flex-col gap-4">
-              <h3 className="text-sm font-bold uppercase tracking-wider text-emerald-400">3. Order Assistant</h3>
+              <h3 className="text-xs font-bold uppercase tracking-wider text-emerald-400">3. Order Assistant</h3>
               
               <form onSubmit={handleQuerySearch} className="flex flex-col gap-3">
                 <textarea 
@@ -491,7 +654,7 @@ export default function NutriOrderDashboard() {
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                       </svg>
-                      Searching Staging Menus...
+                      Running AI Engine...
                     </>
                   ) : (
                     "Find Recommended Meal"
@@ -505,7 +668,7 @@ export default function NutriOrderDashboard() {
           <div className="lg:col-span-7 flex flex-col gap-8">
             {/* Step 4: Recommendations results list */}
             <section className="bg-slate-900/60 backdrop-blur-md border border-slate-800 rounded-xl p-5 shadow-lg flex-1 flex flex-col gap-4">
-              <h3 className="text-sm font-bold uppercase tracking-wider text-emerald-400">4. AI Meal Recommendations</h3>
+              <h3 className="text-xs font-bold uppercase tracking-wider text-emerald-400">4. AI Meal Recommendations</h3>
               
               {recommendations.length === 0 ? (
                 <div className="flex-1 border border-dashed border-slate-800/80 rounded-xl flex flex-col items-center justify-center p-8 text-center text-slate-500 gap-2">
@@ -519,7 +682,7 @@ export default function NutriOrderDashboard() {
                     return (
                       <div 
                         key={meal.id}
-                        onClick={() => setSelectedMeal(meal)}
+                        onClick={() => handleMealSelect(meal)}
                         className={`cursor-pointer border rounded-xl p-4 flex flex-col gap-3 transition ${
                           isSelected 
                             ? "bg-slate-950/80 border-emerald-500 shadow-md shadow-emerald-500/5" 
@@ -569,10 +732,23 @@ export default function NutriOrderDashboard() {
 
             {/* Step 5: Checkout Cart Review */}
             <section className="bg-slate-900/60 backdrop-blur-md border border-slate-800 rounded-xl p-5 shadow-lg flex flex-col gap-4">
-              <h3 className="text-sm font-bold uppercase tracking-wider text-emerald-400">5. Staging Cart Review</h3>
+              <div className="flex justify-between items-center">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-emerald-400">5. Staging Cart Review</h3>
+                {cartLoading && (
+                  <span className="text-[10px] text-emerald-400 font-mono animate-pulse">Syncing...</span>
+                )}
+              </div>
               
               {!selectedMeal ? (
                 <p className="text-xs text-slate-500 text-center py-4">Select a meal recommendation card above to review checkout parameters.</p>
+              ) : cartLoading ? (
+                <div className="flex items-center justify-center py-6 gap-2">
+                  <svg className="animate-spin h-5 w-5 text-emerald-400" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  </svg>
+                  <span className="text-xs text-slate-500 font-mono">Synchronizing Swiggy cart...</span>
+                </div>
               ) : (
                 <div className="flex flex-col gap-4">
                   {/* Cart metrics */}
@@ -582,10 +758,8 @@ export default function NutriOrderDashboard() {
                       <span className="font-semibold text-slate-200">{selectedMeal.name}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-slate-500">Address:</span>
-                      <span className="font-semibold text-slate-200">
-                        {SAVED_ADDRESSES.find(a => a.id === selectedAddress)?.label || selectedAddress}
-                      </span>
+                      <span className="text-slate-500">Restaurant:</span>
+                      <span className="font-semibold text-slate-200">{cartPreview?.restaurantName || selectedMeal.restaurant}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-slate-500">Payment:</span>
@@ -593,7 +767,7 @@ export default function NutriOrderDashboard() {
                     </div>
                     <div className="flex justify-between border-t border-slate-800 pt-2 font-bold text-slate-200">
                       <span>Total Amount:</span>
-                      <span className="text-emerald-400">Rs {selectedMeal.price}</span>
+                      <span className="text-emerald-400">Rs {cartPreview?.total || selectedMeal.price}</span>
                     </div>
                   </div>
 
@@ -611,7 +785,7 @@ export default function NutriOrderDashboard() {
                     <input 
                       type="checkbox"
                       checked={checkoutConfirmed}
-                      onChange={(e) => setCheckoutConfirmed(e.target.checked)}
+                      onChange={(e) => handleConfirmCheckbox(e.target.checked)}
                       className="accent-emerald-500 h-4 w-4 rounded cursor-pointer"
                     />
                     <div className="text-xs">

@@ -300,6 +300,8 @@ def test_production_swiggy_client_token_loading():
     
     original_key = os.environ.get("ENCRYPTION_KEY")
     os.environ["ENCRYPTION_KEY"] = secrets.token_hex(32)
+    original_use_mock = os.environ.get("USE_MOCK_MCP")
+    os.environ["USE_MOCK_MCP"] = "false"
     
     db = SessionLocal()
     try:
@@ -332,6 +334,10 @@ def test_production_swiggy_client_token_loading():
             os.environ["ENCRYPTION_KEY"] = original_key
         else:
             os.environ.pop("ENCRYPTION_KEY", None)
+        if original_use_mock is not None:
+            os.environ["USE_MOCK_MCP"] = original_use_mock
+        else:
+            os.environ.pop("USE_MOCK_MCP", None)
 
 
 def test_db_backed_memory_manager():

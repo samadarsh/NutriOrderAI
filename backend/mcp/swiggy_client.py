@@ -1,5 +1,7 @@
-from typing import Any, Dict, List, Optional
+import os
+from typing import Any, Dict, List, Optional, Union
 from mcp.mcp_client import SwiggyFoodMCPClient
+from mcp.mcp_mock import MockSwiggyFoodMCP
 from backend.db.session import SessionLocal
 from backend.db.models import SwiggyToken
 from backend.auth.sessions import decrypt_token
@@ -12,13 +14,19 @@ class ProductionSwiggyClient:
     """
     def __init__(self, user_id: str) -> None:
         self.user_id = user_id
-        self._client: Optional[SwiggyFoodMCPClient] = None
+        self._client: Optional[Union[SwiggyFoodMCPClient, MockSwiggyFoodMCP]] = None
 
-    def _get_initialized_client(self) -> SwiggyFoodMCPClient:
+    def _get_initialized_client(self) -> Union[SwiggyFoodMCPClient, MockSwiggyFoodMCP]:
         """
         Retrieves user credentials from DB, decrypts them, and initializes the HTTP client.
+        If USE_MOCK_MCP=true, returns MockSwiggyFoodMCP instead.
         """
         if self._client:
+            return self._client
+
+        # Mock mode fallback
+        if os.getenv("USE_MOCK_MCP", "true").lower() == "true":
+            self._client = MockSwiggyFoodMCP()
             return self._client
             
         db = SessionLocal()

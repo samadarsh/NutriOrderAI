@@ -1,5 +1,12 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
+
+# Import database session, engine and trigger models registration
+from backend.db.session import engine, Base
+import backend.db.models  # Registers SQLite/PostgreSQL models
+
+# Import routers
 from backend.auth import swiggy_oauth
 from backend.users import routes as users_routes
 from backend.orders import routes as orders_routes
@@ -9,6 +16,20 @@ app = FastAPI(
     title="NutriOrder AI Production Backend",
     description="Multi-user FastAPI production server with OAuth, memory persistence, and order state machine.",
     version="1.0.0"
+)
+
+# Startup DB initialization hook
+@app.on_event("startup")
+def init_db():
+    Base.metadata.create_all(bind=engine)
+
+# CORS configuration allowing explicit localhost frontend origin with credentials enabled
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # Include modules

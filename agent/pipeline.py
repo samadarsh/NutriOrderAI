@@ -12,7 +12,7 @@ class NutriOrderPipeline:
         self.personalization = personalization_engine
         self.ranker = RankingEngine()
 
-    def run_pipeline(self, raw_input: str, session_constraints: Dict[str, Any], address_id: Optional[str] = None) -> Dict[str, Any]:
+    def run_pipeline(self, raw_input: str, session_constraints: Dict[str, Any], address_id: Optional[str] = None, skip_cart_update: bool = False) -> Dict[str, Any]:
         """Orchestrate the end-to-end recommendation pipeline."""
         start_time = time.time()
         metrics_tracker.reset()  # Reset for UI monitoring purposes if needed
@@ -50,6 +50,19 @@ class NutriOrderPipeline:
                     "success": False,
                     "message": "No meals matched your protein and dietary filters even after constraint relaxation.",
                     "fallback_warnings": fallback_warnings
+                }
+
+            if skip_cart_update:
+                metrics_tracker.record_recommendation(success=True)
+                return {
+                    "success": True,
+                    "constraints": planned_profile,
+                    "recommendation": ranked[0],
+                    "recommendations": ranked[:5],  # top 5 options
+                    "cart_preview": None,
+                    "cart_state": None,
+                    "fallback_warnings": fallback_warnings,
+                    "metrics": metrics_tracker.get_metrics_summary()
                 }
 
             # Stage 6: Select Best Recommendation and generate cart preview

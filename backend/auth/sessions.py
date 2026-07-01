@@ -54,10 +54,48 @@ def decrypt_token(encrypted_token_bytes: bytes) -> str:
 async def get_current_user_id(request: Request) -> str:
     """
     Dependency helper to resolve user session from HTTP-only secure cookie.
+    Only allows overrides/auto-provisions in mock/dev mode.
     """
     session_id = request.cookies.get("nutriorder_session")
-    if not session_id:
-        raise HTTPException(status_code=401, detail="Session expired or unauthenticated.")
     
-    # TODO: Verify session validity in database
-    return "user_1"
+    is_mock = os.getenv("USE_MOCK_MCP", "true").lower() == "true" or os.getenv("APP_ENV") == "development"
+    
+    if not session_id and is_mock:
+        # Check overrides for Swagger testing
+        session_id = request.headers.get("x-user-id") or request.query_params.get("user_id")
+
+    if not session_id:
+        if is_mock:
+            session_id = "demo_user"
+        else:
+            raise HTTPException(status_code=401, detail="Session expired or unauthenticated.")
+
+    from backend.db.session import SessionLocal
+    from backend.db.models import User, UserProfile
+    
+    db = SessionLocal()
+    try:
+        user = db.query(User).filter(User.id == session_id).first()
+        if not user:
+            if is_mock:
+                # Auto-provision user & default profile in mock mode
+                user = User(id=session_id, swiggy_user_ref=f"swiggy_{session_id}_ref")
+                db.add(user)
+                # Auto-provision profile
+                profile = UserProfile(
+                    user_id=session_id,
+                    fitness_goal="maintenance",
+                    calorie_target=650,
+                    protein_target=35,
+                    diet_preference="any",
+                    allergies="[]",
+                    dislikes="[]",
+                    favorite_cuisines="[\"indian\"]"
+                )
+                db.add(profile)
+                db.commit()
+            else:
+                raise HTTPException(status_code=401, detail="User session not found in database.")
+        return session_id
+    finally:
+        db.close()
