@@ -322,7 +322,7 @@ def test_production_swiggy_client_token_loading():
         
         # Instantiate production Swiggy client wrapper
         prod_client = ProductionSwiggyClient(user_id="test_mcp_user")
-        underlying = asyncio.run(prod_client._get_initialized_client())
+        underlying = prod_client._get_initialized_client()
         
         # Verify decrypted token was loaded correctly
         assert underlying.token == "real_staging_bearer_token"
@@ -428,6 +428,32 @@ class MockSwiggyCheckoutClient:
         self.last_placed = True
         return {"orderId": "order_ok", "status": "confirmed"}
 
+    def update_food_cart(self, restaurantId, cartItems, addressId, restaurantName=None):
+        return {"success": True}
+
+    def search_menu(self, addressId, query, vegFilter=0):
+        return [{
+            "restaurantId": "rest_paneer",
+            "restaurantName": "Healthy Paneer",
+            "itemId": "item_paneer_bowl",
+            "name": "Paneer Bowl",
+            "price": 250,
+            "proteins": 35,
+            "calories": 450
+        }]
+
+    def search_restaurants(self, addressId, query):
+        return [{"id": "rest_paneer", "name": "Healthy Paneer"}]
+
+    def get_restaurant_menu(self, addressId, restaurantId):
+        return [{
+            "itemId": "item_paneer_bowl",
+            "name": "Paneer Bowl",
+            "price": 250,
+            "proteins": 35,
+            "calories": 450
+        }]
+
 
 def test_production_checkout_validation_rules():
     """Verify that place_order endpoint enforces state checks, Rs 1000 limit, and duplicate checks."""
@@ -481,7 +507,7 @@ def test_production_checkout_validation_rules():
         from backend.mcp.swiggy_client import ProductionSwiggyClient
         original_init = ProductionSwiggyClient._get_initialized_client
         
-        async def mock_init(self):
+        def mock_init(self):
             return mock_client
         ProductionSwiggyClient._get_initialized_client = mock_init
         
@@ -519,6 +545,159 @@ def test_production_checkout_validation_rules():
             
             db.refresh(sess)
             assert sess.status == OrderStatus.ORDER_PLACED.value
+        finally:
+            ProductionSwiggyClient._get_initialized_client = original_init
+            
+    finally:
+        db.close()
+        if original_key is not None:
+            os.environ["ENCRYPTION_KEY"] = original_key
+        else:
+            os.environ.pop("ENCRYPTION_KEY", None)
+
+
+def test_sliding_window_rate_limiter():
+    """Verify that SlidingWindowRateLimiter blocks requests exceeding the specified threshold."""
+    from backend.auth.rate_limiter import SlidingWindowRateLimiter
+    from fastapi import HTTPException
+    
+    # Limiter that allows 3 requests per 60 seconds
+    limiter = SlidingWindowRateLimiter(limit=3, window_seconds=60)
+    
+    # 3 allowed
+    assert limiter.is_rate_limited("test_ip") is False
+    assert limiter.is_rate_limited("test_ip") is False
+    assert limiter.is_rate_limited("test_ip") is False
+    
+    # 4th blocked
+    assert limiter.is_rate_limited("test_ip") is True
+
+
+def test_recommendations_search_endpoint():
+    """Verify recommendations search route transitions states and runs ranking engine."""
+    from backend.db.session import engine, Base, SessionLocal
+    from backend.db.models import User, OrderSession
+    from backend.recommendations.routes import search_recommendations
+    from backend.orders.state_machine import OrderStatus
+    from backend.mcp.swiggy_client import ProductionSwiggyClient
+    import asyncio
+    
+    Base.metadata.create_all(bind=engine)
+    db = SessionLocal()
+    try:
+        # Clean up
+        db.query(OrderSession).filter(OrderSession.id == "test_rec_sess").delete()
+        db.query(User).filter(User.id == "test_rec_user").delete()
+        db.commit()
+        
+        u = User(id="test_rec_user")
+        db.add(u)
+        db.commit()
+        
+        sess = OrderSession(id="test_rec_sess", user_id="test_rec_user", status=OrderStatus.ADDRESS_SELECTED.value)
+        db.add(sess)
+        db.commit()
+        
+        # Mock client
+        mock_client = MockSwiggyCheckoutClient(cart_total=500)
+        def mock_init(self):
+            return mock_client
+        original_init = ProductionSwiggyClient._get_initialized_client
+        ProductionSwiggyClient._get_initialized_client = mock_init
+        
+        try:
+            # Run search (query = "chicken salad")
+            res = asyncio.run(search_recommendations("test_rec_sess", "chicken salad", "test_rec_user", db))
+            assert res["success"] is True
+            assert res["status"] == OrderStatus.RECOMMENDATIONS_READY.value
+            
+            db.refresh(sess)
+            assert sess.status == OrderStatus.RECOMMENDATIONS_READY.value
+            assert sess.query == "chicken salad"
+        finally:
+            ProductionSwiggyClient._get_initialized_client = original_init
+    finally:
+        db.close()
+
+
+def test_complete_journey_routes():
+    """Test entire sequence of endpoints from session start to confirmation and checkout placement."""
+    from backend.db.session import engine, Base, SessionLocal
+    from backend.db.models import User, SwiggyToken, OrderSession
+    from backend.orders.routes import start_order_session, select_address, select_item, sync_cart, review_cart, confirm_order_details, place_order
+    from backend.orders.state_machine import OrderStatus
+    from backend.auth.sessions import encrypt_token
+    from backend.mcp.swiggy_client import ProductionSwiggyClient
+    
+    import secrets
+    import datetime
+    import asyncio
+    
+    Base.metadata.create_all(bind=engine)
+    
+    original_key = os.environ.get("ENCRYPTION_KEY")
+    os.environ["ENCRYPTION_KEY"] = secrets.token_hex(32)
+    
+    db = SessionLocal()
+    try:
+        # Clean up
+        db.query(SwiggyToken).filter(SwiggyToken.user_id == "journey_user").delete()
+        db.query(OrderSession).filter(OrderSession.user_id == "journey_user").delete()
+        db.query(User).filter(User.id == "journey_user").delete()
+        db.commit()
+        
+        u = User(id="journey_user")
+        db.add(u)
+        
+        encrypted_token = encrypt_token("journey_bearer_token")
+        tok = SwiggyToken(user_id="journey_user", encrypted_access_token=encrypted_token, expires_at=datetime.datetime.now() + datetime.timedelta(days=1))
+        db.add(tok)
+        db.commit()
+        
+        mock_client = MockSwiggyCheckoutClient(cart_total=250)
+        def mock_init(self):
+            return mock_client
+        original_init = ProductionSwiggyClient._get_initialized_client
+        ProductionSwiggyClient._get_initialized_client = mock_init
+        
+        try:
+            # 1. Start Session
+            res = asyncio.run(start_order_session("journey_user", db))
+            session_id = res["session_id"]
+            assert res["status"] == OrderStatus.START.value
+            
+            # 2. Select Address
+            res = asyncio.run(select_address(session_id, "addr_office", "journey_user", db))
+            assert res["status"] == OrderStatus.ADDRESS_SELECTED.value
+            
+            # 2.5 Search Recommendations (transitions ADDRESS_SELECTED -> SEARCHING -> RECOMMENDATIONS_READY)
+            from backend.recommendations.routes import search_recommendations
+            res = asyncio.run(search_recommendations(session_id, "paneer", "journey_user", db))
+            assert res["status"] == OrderStatus.RECOMMENDATIONS_READY.value
+            
+            # 3. Select Item (Simulating search results matching and clicking paneer bowl)
+            res = asyncio.run(select_item(session_id, "rest_paneer", "item_paneer_bowl", "journey_user", db))
+            assert res["status"] == OrderStatus.ITEM_SELECTED.value
+            
+            # 4. Sync Cart (adds to Swiggy cart)
+            res = asyncio.run(sync_cart(session_id, "journey_user", db))
+            assert res["status"] == OrderStatus.CART_UPDATED.value
+            assert res["cart"]["total"] == 250
+            
+            # 5. Review Cart
+            res = asyncio.run(review_cart(session_id, "journey_user", db))
+            assert res["status"] == OrderStatus.CART_REVIEW_READY.value
+            
+            # 6. Confirm Order details
+            res = asyncio.run(confirm_order_details(session_id, "journey_user", db))
+            assert res["status"] == OrderStatus.USER_CONFIRMED.value
+            
+            # 7. Place Order
+            res = asyncio.run(place_order(session_id, True, "journey_user", db))
+            assert res["success"] is True
+            assert res["order_id"] == "order_ok"
+            assert res["status"] == OrderStatus.ORDER_PLACED.value
+            
         finally:
             ProductionSwiggyClient._get_initialized_client = original_init
             

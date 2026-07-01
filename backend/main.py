@@ -3,6 +3,7 @@ import uvicorn
 from backend.auth import swiggy_oauth
 from backend.users import routes as users_routes
 from backend.orders import routes as orders_routes
+from backend.recommendations import routes as recommendations_routes
 
 app = FastAPI(
     title="NutriOrder AI Production Backend",
@@ -14,6 +15,7 @@ app = FastAPI(
 app.include_router(swiggy_oauth.router)
 app.include_router(users_routes.router)
 app.include_router(orders_routes.router)
+app.include_router(recommendations_routes.router)
 
 @app.get("/health")
 async def health():

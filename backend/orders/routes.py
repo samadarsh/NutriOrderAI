@@ -1,6 +1,8 @@
 from typing import Dict, Any
-from fastapi import APIRouter, Depends, HTTPException
+import time
+from fastapi import APIRouter, Depends, HTTPException, Query
 from backend.auth.sessions import get_current_user_id
+from backend.auth.rate_limiter import mutating_rate_limiter
 from sqlalchemy.orm import Session
 from backend.db.session import get_db
 from backend.db.models import OrderSession
@@ -56,6 +58,166 @@ async def select_address(
         "status": OrderStatus.ADDRESS_SELECTED.value
     }
 
+@router.post("/session/{session_id}/select-item")
+async def select_item(
+    session_id: str,
+    restaurant_id: str = Query(..., description="ID of the selected restaurant"),
+    item_id: str = Query(..., description="ID of the selected menu item"),
+    user_id: str = Depends(get_current_user_id),
+    db: Session = Depends(get_db)
+) -> Dict[str, Any]:
+    """
+    Selects a specific meal item for the order session, transitioning status to ITEM_SELECTED.
+    """
+    session_record = db.query(OrderSession).filter(
+        OrderSession.id == session_id,
+        OrderSession.user_id == user_id
+    ).first()
+    if not session_record:
+        raise HTTPException(status_code=404, detail="Order session not found.")
+        
+    session_record.selected_restaurant_id = restaurant_id
+    session_record.selected_item_id = item_id
+    transition_session_status(db, session_record, OrderStatus.ITEM_SELECTED)
+    
+    return {
+        "session_id": session_id,
+        "restaurant_id": restaurant_id,
+        "item_id": item_id,
+        "status": OrderStatus.ITEM_SELECTED.value
+    }
+
+@router.post("/session/{session_id}/cart")
+async def sync_cart(
+    session_id: str,
+    user_id: str = Depends(get_current_user_id),
+    db: Session = Depends(get_db),
+    _rate_limit = Depends(mutating_rate_limiter)
+) -> Dict[str, Any]:
+    """
+    Adds the selected menu item to the user's Swiggy cart, transitioning state to CART_UPDATED.
+    """
+    session_record = db.query(OrderSession).filter(
+        OrderSession.id == session_id,
+        OrderSession.user_id == user_id
+    ).first()
+    if not session_record:
+        raise HTTPException(status_code=404, detail="Order session not found.")
+        
+    if not session_record.selected_restaurant_id or not session_record.selected_item_id:
+        raise HTTPException(status_code=400, detail="Must select a restaurant and item first.")
+        
+    try:
+        from backend.mcp.swiggy_client import ProductionSwiggyClient
+        swiggy = ProductionSwiggyClient(user_id=user_id)
+        client = swiggy._get_initialized_client()
+        
+        address_id = session_record.address_id or "addr_home"
+        # Update cart
+        client.update_food_cart(
+            addressId=address_id,
+            restaurantId=session_record.selected_restaurant_id,
+            cartItems=[{"itemId": session_record.selected_item_id, "quantity": 1}]
+        )
+        
+        # Fetch updated cart
+        cart_info = client.get_food_cart(addressId=address_id)
+        
+        # Save snapshot and transition
+        session_record.cart_snapshot = cart_info
+        session_record.total = cart_info.get("bill", {}).get("total", 0) or cart_info.get("total", 0) or 0
+        transition_session_status(db, session_record, OrderStatus.CART_UPDATED)
+        db.commit()
+        
+        return {
+            "session_id": session_id,
+            "cart": cart_info,
+            "status": OrderStatus.CART_UPDATED.value
+        }
+    except Exception as e:
+        transition_session_status(db, session_record, OrderStatus.FAILED)
+        raise HTTPException(status_code=500, detail=f"Cart sync failed: {str(e)}")
+
+@router.get("/session/{session_id}/cart")
+async def review_cart(
+    session_id: str,
+    user_id: str = Depends(get_current_user_id),
+    db: Session = Depends(get_db)
+) -> Dict[str, Any]:
+    """
+    Fetches the Swiggy cart preview and moves state to CART_REVIEW_READY.
+    """
+    session_record = db.query(OrderSession).filter(
+        OrderSession.id == session_id,
+        OrderSession.user_id == user_id
+    ).first()
+    if not session_record:
+        raise HTTPException(status_code=404, detail="Order session not found.")
+        
+    try:
+        from backend.mcp.swiggy_client import ProductionSwiggyClient
+        swiggy = ProductionSwiggyClient(user_id=user_id)
+        client = swiggy._get_initialized_client()
+        
+        address_id = session_record.address_id or "addr_home"
+        cart_info = client.get_food_cart(addressId=address_id)
+        
+        session_record.cart_snapshot = cart_info
+        session_record.total = cart_info.get("bill", {}).get("total", 0) or cart_info.get("total", 0) or 0
+        transition_session_status(db, session_record, OrderStatus.CART_REVIEW_READY)
+        db.commit()
+        
+        return {
+            "session_id": session_id,
+            "cart": cart_info,
+            "status": OrderStatus.CART_REVIEW_READY.value
+        }
+    except Exception as e:
+        transition_session_status(db, session_record, OrderStatus.FAILED)
+        raise HTTPException(status_code=500, detail=f"Cart review failed: {str(e)}")
+
+@router.post("/session/{session_id}/confirm")
+async def confirm_order_details(
+    session_id: str,
+    user_id: str = Depends(get_current_user_id),
+    db: Session = Depends(get_db),
+    _rate_limit = Depends(mutating_rate_limiter)
+) -> Dict[str, Any]:
+    """
+    Finalizes the cart selection and transitions to USER_CONFIRMED.
+    """
+    session_record = db.query(OrderSession).filter(
+        OrderSession.id == session_id,
+        OrderSession.user_id == user_id
+    ).first()
+    if not session_record:
+        raise HTTPException(status_code=404, detail="Order session not found.")
+        
+    current_status = OrderStatus(session_record.status)
+    if current_status not in [OrderStatus.CART_UPDATED, OrderStatus.CART_REVIEW_READY]:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot confirm details when in state {current_status.value}."
+        )
+        
+    transition_session_status(db, session_record, OrderStatus.USER_CONFIRMED)
+    
+    # Save a CONFIRMATION event log
+    from backend.db.models import OrderEvent
+    event = OrderEvent(
+        order_session_id=session_id,
+        event_type="USER_CONFIRMATION",
+        payload={"confirmed_at": str(time.time()), "total": session_record.total}
+    )
+    db.add(event)
+    db.commit()
+    
+    return {
+        "session_id": session_id,
+        "confirmed": True,
+        "status": OrderStatus.USER_CONFIRMED.value
+    }
+
 @router.post("/session/{session_id}/place")
 async def place_order(
     session_id: str,
@@ -94,7 +256,7 @@ async def place_order(
         # 3. Instantiate Swiggy client
         from backend.mcp.swiggy_client import ProductionSwiggyClient
         swiggy = ProductionSwiggyClient(user_id=user_id)
-        client = await swiggy._get_initialized_client()
+        client = swiggy._get_initialized_client()
 
         # 4. Fetch live cart to inspect total (Safety requirement)
         address_id = session_record.address_id or "addr_home"

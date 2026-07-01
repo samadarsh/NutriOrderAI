@@ -26,6 +26,9 @@ def run_suite():
         ("test_db_backed_memory_manager", test_integration.test_db_backed_memory_manager),
         ("test_order_state_machine_validation", test_integration.test_order_state_machine_validation),
         ("test_production_checkout_validation_rules", test_integration.test_production_checkout_validation_rules),
+        ("test_sliding_window_rate_limiter", test_integration.test_sliding_window_rate_limiter),
+        ("test_recommendations_search_endpoint", test_integration.test_recommendations_search_endpoint),
+        ("test_complete_journey_routes", test_integration.test_complete_journey_routes),
     ]
 
     passed = 0
