@@ -1,5 +1,5 @@
 import time
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Tuple, Optional
 from agent.observability import log_info, log_warn, log_error, metrics_tracker
 from agent.ranking import RankingEngine
 from agent.caching import mcp_cache
@@ -12,7 +12,7 @@ class NutriOrderPipeline:
         self.personalization = personalization_engine
         self.ranker = RankingEngine()
 
-    def run_pipeline(self, raw_input: str, session_constraints: Dict[str, Any]) -> Dict[str, Any]:
+    def run_pipeline(self, raw_input: str, session_constraints: Dict[str, Any], address_id: Optional[str] = None) -> Dict[str, Any]:
         """Orchestrate the end-to-end recommendation pipeline."""
         start_time = time.time()
         metrics_tracker.reset()  # Reset for UI monitoring purposes if needed
@@ -21,8 +21,8 @@ class NutriOrderPipeline:
         from mcp.mcp_client import SwiggyAuthError, SwiggyMCPError
 
         try:
-            # Resolve address ID early
-            address_id = self._resolve_address_id()
+            # Resolve address ID early (use passed value if present)
+            address_id = address_id or session_constraints.get("addressId") or self._resolve_address_id()
 
             # Stage 1: Intent Parser (uses session inputs or regex if not LLM parsed)
             intent = self._parse_intent(raw_input, session_constraints)

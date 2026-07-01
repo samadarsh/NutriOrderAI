@@ -4,9 +4,12 @@ from typing import Any, Dict, List
 from agent.observability import log_info, log_error
 
 class UserMemoryManager:
-    def __init__(self, memory_filepath: str = "outputs/user_memory.json") -> None:
+    def __init__(self, memory_filepath: str = "outputs/user_memory.json", db: Any = None, user_id: str = "default_user") -> None:
         self.filepath = Path(memory_filepath)
         self.filepath.parent.mkdir(parents=True, exist_ok=True)
+        self.db = db
+        self.user_id = user_id
+        
         self.default_profile = {
             "dislikes": [],
             "allergies": [],
@@ -21,6 +24,37 @@ class UserMemoryManager:
         self.profile = self.load_memory()
 
     def load_memory(self) -> Dict[str, Any]:
+        if self.db:
+            from backend.db.models import UserProfile
+            record = self.db.query(UserProfile).filter(UserProfile.user_id == self.user_id).first()
+            if not record:
+                record = UserProfile(
+                    user_id=self.user_id,
+                    protein_target=self.default_profile["target_protein"],
+                    calorie_target=self.default_profile["target_calories"],
+                    diet_preference="any",
+                    allergies=self.default_profile["allergies"],
+                    dislikes=self.default_profile["dislikes"],
+                    favorite_cuisines=self.default_profile["favorite_cuisines"],
+                    fitness_goal=self.default_profile["fitness_goal"]
+                )
+                self.db.add(record)
+                self.db.commit()
+                self.db.refresh(record)
+                
+            return {
+                "dislikes": record.dislikes or [],
+                "allergies": record.allergies or [],
+                "favorite_cuisines": record.favorite_cuisines or [],
+                "preferred_restaurants": [],
+                "typical_budget": 300,
+                "fitness_goal": record.fitness_goal or "maintenance",
+                "target_protein": record.protein_target or 30,
+                "target_calories": record.calorie_target or 600,
+                "dietary_preference": record.diet_preference or "any",
+                "preferences": []
+            }
+
         if not self.filepath.exists():
             log_info("No user memory profile found. Initializing with defaults.")
             return dict(self.default_profile)
@@ -37,6 +71,22 @@ class UserMemoryManager:
             return dict(self.default_profile)
 
     def save_memory(self) -> bool:
+        if self.db:
+            from backend.db.models import UserProfile
+            record = self.db.query(UserProfile).filter(UserProfile.user_id == self.user_id).first()
+            if record:
+                record.protein_target = self.profile.get("target_protein", 30)
+                record.calorie_target = self.profile.get("target_calories", 600)
+                record.diet_preference = self.profile.get("dietary_preference", "any")
+                record.allergies = self.profile.get("allergies", [])
+                record.dislikes = self.profile.get("dislikes", [])
+                record.favorite_cuisines = self.profile.get("favorite_cuisines", [])
+                record.fitness_goal = self.profile.get("fitness_goal", "maintenance")
+                self.db.commit()
+                log_info("User memory profile saved to database successfully.")
+                return True
+            return False
+
         try:
             with open(self.filepath, "w", encoding="utf-8") as f:
                 json.dump(self.profile, f, indent=2, ensure_ascii=False)

@@ -1,42 +1,67 @@
 from typing import Dict, Any
 from fastapi import APIRouter, Depends, HTTPException
 from backend.auth.sessions import get_current_user_id
-from backend.orders.state_machine import OrderStatus, validate_state_transition
+from sqlalchemy.orm import Session
+from backend.db.session import get_db
+from backend.db.models import OrderSession
+from backend.orders.state_machine import OrderStatus, validate_state_transition, transition_session_status
 
 router = APIRouter(prefix="/orders", tags=["Order Sessions"])
 
 @router.post("/session/start")
-async def start_order_session(user_id: str = Depends(get_current_user_id)) -> Dict[str, Any]:
+async def start_order_session(
+    user_id: str = Depends(get_current_user_id),
+    db: Session = Depends(get_db)
+) -> Dict[str, Any]:
     """
     Spawns a new order session and sets initial state to START.
     """
-    # TODO: Create record in order_sessions table
+    import secrets
+    session_id = f"session_{secrets.token_hex(6)}"
+    new_session = OrderSession(
+        id=session_id,
+        user_id=user_id,
+        status=OrderStatus.START.value
+    )
+    db.add(new_session)
+    db.commit()
     return {
-        "session_id": "session_12345",
-        "status": OrderStatus.START
+        "session_id": session_id,
+        "status": OrderStatus.START.value
     }
 
 @router.post("/session/{session_id}/select-address")
 async def select_address(
     session_id: str,
     address_id: str,
-    user_id: str = Depends(get_current_user_id)
+    user_id: str = Depends(get_current_user_id),
+    db: Session = Depends(get_db)
 ) -> Dict[str, Any]:
     """
     Binds the user-selected addressId to the current order session.
     """
-    # TODO: Transition to ADDRESS_SELECTED in DB
+    session_record = db.query(OrderSession).filter(
+        OrderSession.id == session_id,
+        OrderSession.user_id == user_id
+    ).first()
+    if not session_record:
+        raise HTTPException(status_code=404, detail="Order session not found.")
+        
+    session_record.address_id = address_id
+    transition_session_status(db, session_record, OrderStatus.ADDRESS_SELECTED)
+    
     return {
         "session_id": session_id,
         "address_id": address_id,
-        "status": OrderStatus.ADDRESS_SELECTED
+        "status": OrderStatus.ADDRESS_SELECTED.value
     }
 
 @router.post("/session/{session_id}/place")
 async def place_order(
     session_id: str,
     user_confirmed: bool,
-    user_id: str = Depends(get_current_user_id)
+    user_id: str = Depends(get_current_user_id),
+    db: Session = Depends(get_db)
 ) -> Dict[str, Any]:
     """
     Performs the non-idempotent Swiggy order placement, enforcing safety locks,
@@ -44,11 +69,82 @@ async def place_order(
     """
     if not user_confirmed:
         raise HTTPException(status_code=400, detail="Explicit user_confirmed parameter is required.")
+
+    # 1. Fetch OrderSession from database
+    session_record = db.query(OrderSession).filter(
+        OrderSession.id == session_id,
+        OrderSession.user_id == user_id
+    ).first()
+    
+    if not session_record:
+        raise HTTPException(status_code=404, detail="Order session not found.")
+
+    # 2. State transition check (enforce USER_CONFIRMED status before order placing)
+    current_status = OrderStatus(session_record.status)
+    if current_status != OrderStatus.USER_CONFIRMED:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Order cannot be placed. Current session status is {current_status.value}, expected USER_CONFIRMED."
+        )
+
+    # Transition status to ORDER_PLACING
+    transition_session_status(db, session_record, OrderStatus.ORDER_PLACING)
+
+    try:
+        # 3. Instantiate Swiggy client
+        from backend.mcp.swiggy_client import ProductionSwiggyClient
+        swiggy = ProductionSwiggyClient(user_id=user_id)
+        client = await swiggy._get_initialized_client()
+
+        # 4. Fetch live cart to inspect total (Safety requirement)
+        address_id = session_record.address_id or "addr_home"
+        cart_info = client.get_food_cart(addressId=address_id)
         
-    # TODO: Load session snapshot from DB, verify current state is USER_CONFIRMED
-    # TODO: Perform get_food_orders check to ensure order is not already created
-    # TODO: Call place_food_order on Swiggy MCP Staging after all guards pass
-    raise HTTPException(
-        status_code=501,
-        detail="Order placement is not implemented in the production scaffold yet."
-    )
+        # Verify cart total limit (Rs 1000 limit)
+        cart_total = cart_info.get("bill", {}).get("total", 0) or cart_info.get("total", 0) or 0
+        if cart_total >= 1000:
+            transition_session_status(db, session_record, OrderStatus.FAILED)
+            raise HTTPException(
+                status_code=400,
+                detail=f"Checkout blocked: Cart total of Rs {cart_total} exceeds the Swiggy Builders Club cap of Rs 1000."
+            )
+
+        # 5. Non-idempotent duplicate order prevention:
+        # Check active food orders before placing a new one
+        recent_orders = client.get_food_orders(addressId=address_id)
+        for order in recent_orders:
+            # If there's an active/recent order placed within the last 5 minutes, block placement
+            import time
+            timestamp = order.get("timestamp", 0)
+            if timestamp and (time.time() - timestamp) < 300:
+                transition_session_status(db, session_record, OrderStatus.FAILED)
+                raise HTTPException(
+                    status_code=409,
+                    detail="Checkout blocked: A recent order was already placed. Duplicate prevention active."
+                )
+
+        # 6. Place Order
+        order_res = client.place_food_order(addressId=address_id, paymentMethod="COD")
+        
+        # Transition status to ORDER_PLACED
+        transition_session_status(db, session_record, OrderStatus.ORDER_PLACED)
+        
+        # Record final details
+        session_record.selected_restaurant_id = cart_info.get("restaurantId") or session_record.selected_restaurant_id
+        session_record.total = cart_total
+        session_record.payment_method = "COD"
+        db.commit()
+
+        return {
+            "success": True,
+            "order_id": order_res.get("orderId") or order_res.get("order_id"),
+            "status": OrderStatus.ORDER_PLACED.value,
+            "message": "Order placed successfully."
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        # Failsafe: transition session to FAILED in case of client or network error
+        transition_session_status(db, session_record, OrderStatus.FAILED)
+        raise HTTPException(status_code=500, detail=f"Order placement failed: {str(e)}")
