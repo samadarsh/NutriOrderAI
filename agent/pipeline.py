@@ -147,7 +147,12 @@ class NutriOrderPipeline:
         # Clean session constraints
         intent = {
             "query": raw_input or session_constraints.get("user_goal", "high protein"),
-            "protein_goal": session_constraints.get("protein_target_g", 30),
+            "protein_goal": (
+                session_constraints.get("protein_target_g")
+                or session_constraints.get("protein_target")
+                or session_constraints.get("protein_goal")
+            ),
+            "calorie_target": session_constraints.get("calorie_target") or session_constraints.get("target_calories"),
             "budget": session_constraints.get("budget_max_rs", 300),
             "delivery_time": session_constraints.get("max_delivery_time_min", 45),
             "preferences": session_constraints.get("preferences", []),
@@ -176,8 +181,8 @@ class NutriOrderPipeline:
         from agent.nutrition_targets import NutritionTargetEngine
         targets = NutritionTargetEngine.calculate_targets(profile)
         
-        profile["target_calories"] = targets["meal_calories"]
-        profile["target_protein"] = targets["meal_protein"]
+        profile["target_calories"] = intent.get("calorie_target") or targets["meal_calories"]
+        profile["target_protein"] = intent.get("protein_goal") or targets["meal_protein"]
         profile["daily_calories"] = targets["daily_calories"]
         profile["daily_protein"] = targets["daily_protein"]
         profile["goal_reason"] = targets["goal_reason"]

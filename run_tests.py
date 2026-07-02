@@ -30,10 +30,13 @@ def run_suite():
         ("test_sliding_window_rate_limiter", test_integration.test_sliding_window_rate_limiter),
         ("test_recommendations_search_endpoint", test_integration.test_recommendations_search_endpoint),
         ("test_complete_journey_routes", test_integration.test_complete_journey_routes),
+        ("test_feedback_endpoint_fastapi_contract", test_integration.test_feedback_endpoint_fastapi_contract),
         ("test_nutrition_targets_calc", test_nutrition.test_nutrition_targets_calc),
         ("test_nutrition_estimator", test_nutrition.test_nutrition_estimator),
         ("test_ranking_with_priorities", test_nutrition.test_ranking_with_priorities),
         ("test_search_request_schema", test_nutrition.test_search_request_schema),
+        ("test_db_memory_loads_biometrics_for_target_engine", test_nutrition.test_db_memory_loads_biometrics_for_target_engine),
+        ("test_pipeline_relaxation_patch_overrides_computed_targets", test_nutrition.test_pipeline_relaxation_patch_overrides_computed_targets),
     ]
 
     passed = 0

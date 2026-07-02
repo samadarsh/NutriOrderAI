@@ -112,3 +112,87 @@ def test_search_request_schema():
     # Invalid payload missing query
     with pytest.raises(ValidationError):
         SearchRequestSchema(session_id="session_abc")
+
+
+def test_db_memory_loads_biometrics_for_target_engine():
+    from backend.db.session import engine, Base, SessionLocal
+    from backend.db.models import User
+    from agent.memory import UserMemoryManager
+
+    Base.metadata.create_all(bind=engine)
+    db = SessionLocal()
+    try:
+        db.query(UserProfile).filter(UserProfile.user_id == "nutrition_bio_user").delete()
+        db.query(User).filter(User.id == "nutrition_bio_user").delete()
+        db.commit()
+
+        db.add(User(id="nutrition_bio_user"))
+        db.add(UserProfile(
+            user_id="nutrition_bio_user",
+            protein_target=35,
+            calorie_target=650,
+            diet_preference="any",
+            fitness_goal="muscle_gain",
+            age=28,
+            gender="male",
+            height_cm=178,
+            weight_kg=76,
+            activity_level="moderate",
+            meal_budget_default=420,
+            preferred_meal_times={"lunch": "13:00"},
+            spice_tolerance="medium",
+        ))
+        db.commit()
+
+        memory = UserMemoryManager(db=db, user_id="nutrition_bio_user")
+        assert memory.profile["age"] == 28
+        assert memory.profile["weight_kg"] == 76
+        assert memory.profile["typical_budget"] == 420
+
+        targets = NutritionTargetEngine.calculate_targets(memory.profile)
+        assert targets["daily_calories"] > 2500
+        assert targets["meal_protein"] > 40
+    finally:
+        db.close()
+
+
+def test_pipeline_relaxation_patch_overrides_computed_targets():
+    from agent.pipeline import NutriOrderPipeline
+
+    class MemoryStub:
+        def get_merged_constraints(self, session_constraints):
+            profile = {
+                "dislikes": [],
+                "allergies": [],
+                "favorite_cuisines": [],
+                "preferred_restaurants": [],
+                "typical_budget": 300,
+                "fitness_goal": "muscle_gain",
+                "target_protein": 30,
+                "target_calories": 650,
+                "dietary_preference": "any",
+                "preferences": [],
+                "age": 28,
+                "gender": "male",
+                "height_cm": 178,
+                "weight_kg": 76,
+                "activity_level": "moderate",
+                "query": session_constraints.get("query", "protein"),
+            }
+            if session_constraints.get("protein_target"):
+                profile["target_protein"] = session_constraints["protein_target"]
+            if session_constraints.get("calorie_target"):
+                profile["target_calories"] = session_constraints["calorie_target"]
+            return profile
+
+    pipeline = NutriOrderPipeline(
+        mcp_client=None,
+        memory_manager=MemoryStub(),
+        personalization_engine=type("PersonalizationStub", (), {"get_personalization_summary": lambda self: {}})(),
+    )
+    constraints = {"protein_target": 22, "calorie_target": 720, "query": "paneer"}
+    intent = pipeline._parse_intent("paneer", constraints)
+    profile = pipeline._plan_nutrition(intent)
+
+    assert profile["target_protein"] == 22
+    assert profile["target_calories"] == 720

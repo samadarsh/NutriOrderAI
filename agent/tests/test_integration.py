@@ -750,3 +750,86 @@ def test_complete_journey_routes():
             os.environ["ENCRYPTION_KEY"] = original_key
         else:
             os.environ.pop("ENCRYPTION_KEY", None)
+
+
+def test_feedback_endpoint_fastapi_contract():
+    """Verify the feedback endpoint accepts JSON through FastAPI and updates profile learning data."""
+    from fastapi.testclient import TestClient
+    from backend.main import app
+    import secrets
+
+    original_key = os.environ.get("ENCRYPTION_KEY")
+    original_use_mock = os.environ.get("USE_MOCK_MCP")
+    original_app_env = os.environ.get("APP_ENV")
+
+    os.environ["ENCRYPTION_KEY"] = secrets.token_hex(32)
+    os.environ["USE_MOCK_MCP"] = "true"
+    os.environ["APP_ENV"] = "development"
+
+    try:
+        with TestClient(app) as client:
+            login = client.post("/auth/demo-login")
+            assert login.status_code == 200
+
+            start = client.post("/orders/session/start")
+            assert start.status_code == 200
+            session_id = start.json()["session_id"]
+
+            addr = client.post(
+                f"/orders/session/{session_id}/select-address",
+                params={"address_id": "addr_home"},
+            )
+            assert addr.status_code == 200
+
+            recs = client.post(
+                "/recommendations/search",
+                json={"session_id": session_id, "query": "chicken salad"},
+            )
+            assert recs.status_code == 200
+            top = recs.json()["results"]["recommendations"][0]
+
+            item = client.post(
+                f"/orders/session/{session_id}/select-item",
+                params={"restaurant_id": top["restaurant_id"], "item_id": top["item_id"]},
+            )
+            assert item.status_code == 200
+
+            cart = client.post(f"/orders/session/{session_id}/cart")
+            assert cart.status_code == 200
+
+            review = client.get(f"/orders/session/{session_id}/cart")
+            assert review.status_code == 200
+
+            confirm = client.post(f"/orders/session/{session_id}/confirm")
+            assert confirm.status_code == 200
+
+            place = client.post(
+                f"/orders/session/{session_id}/place",
+                params={"user_confirmed": True},
+            )
+            assert place.status_code == 200
+
+            feedback = client.post(
+                f"/orders/session/{session_id}/feedback",
+                json={"rating": 5, "filling": "filling", "spicy": "too_spicy", "again": True},
+            )
+            assert feedback.status_code == 200
+            assert feedback.json()["success"] is True
+
+            profile = client.get("/me/profile")
+            assert profile.status_code == 200
+            assert profile.json()["spice_tolerance"] == "low"
+            assert "spicy" in profile.json()["dislikes"]
+    finally:
+        if original_key is not None:
+            os.environ["ENCRYPTION_KEY"] = original_key
+        else:
+            os.environ.pop("ENCRYPTION_KEY", None)
+        if original_use_mock is not None:
+            os.environ["USE_MOCK_MCP"] = original_use_mock
+        else:
+            os.environ.pop("USE_MOCK_MCP", None)
+        if original_app_env is not None:
+            os.environ["APP_ENV"] = original_app_env
+        else:
+            os.environ.pop("APP_ENV", None)

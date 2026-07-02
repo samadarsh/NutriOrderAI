@@ -68,12 +68,20 @@ async def search_recommendations(
         
         # 4. Fetch UserProfile for default thresholds
         profile_rec = db.query(UserProfile).filter(UserProfile.user_id == user_id).first()
+        has_biometrics = bool(
+            profile_rec
+            and profile_rec.age
+            and profile_rec.gender
+            and profile_rec.height_cm
+            and profile_rec.weight_kg
+        )
         initial_constraints = {
             "addressId": session_record.address_id or "addr_home",
-            "calorie_target": profile_rec.calorie_target if profile_rec else 650,
-            "protein_target_g": profile_rec.protein_target if profile_rec else 35,
             "budget_max_rs": profile_rec.meal_budget_default if profile_rec else 300
         }
+        if profile_rec and not has_biometrics:
+            initial_constraints["calorie_target"] = profile_rec.calorie_target
+            initial_constraints["protein_target_g"] = profile_rec.protein_target
 
         # 5. Run ranking pipeline
         pipeline = NutriOrderPipeline(

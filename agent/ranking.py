@@ -284,9 +284,9 @@ class RankingEngine:
             price = meal.get("price", 0)
             eta = meal.get("delivery_time_min", 0)
             
-            target_protein = profile.get("protein_target", 35)
-            target_calories = profile.get("calorie_target", 650)
-            budget_max = profile.get("meal_budget_default", 300)
+            target_protein = profile.get("target_protein", profile.get("protein_target", 35))
+            target_calories = profile.get("target_calories", profile.get("calorie_target", 650))
+            budget_max = profile.get("typical_budget", profile.get("meal_budget_default", 300))
             
             # Explanations
             if protein >= target_protein:

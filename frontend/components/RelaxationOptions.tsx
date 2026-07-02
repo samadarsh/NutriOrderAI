@@ -2,13 +2,13 @@ import React from "react";
 
 export interface RelaxationOption {
   label: string;
-  patch: Record<string, any>;
+  patch: Record<string, unknown>;
   impact: string;
 }
 
 interface RelaxationOptionsProps {
   options: RelaxationOption[];
-  onApplyPatch: (patch: Record<string, any>) => void;
+  onApplyPatch: (patch: Record<string, unknown>) => void;
   loading: boolean;
 }
 

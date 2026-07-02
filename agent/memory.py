@@ -19,7 +19,14 @@ class UserMemoryManager:
             "fitness_goal": "muscle_gain",  # muscle_gain, fat_loss, maintenance, general
             "target_protein": 30,
             "target_calories": 650,
-            "preferences": []
+            "preferences": [],
+            "age": None,
+            "gender": None,
+            "height_cm": None,
+            "weight_kg": None,
+            "activity_level": "moderate",
+            "preferred_meal_times": {},
+            "spice_tolerance": "medium"
         }
         self.profile = self.load_memory()
 
@@ -47,11 +54,18 @@ class UserMemoryManager:
                 "allergies": record.allergies or [],
                 "favorite_cuisines": record.favorite_cuisines or [],
                 "preferred_restaurants": [],
-                "typical_budget": 300,
+                "typical_budget": record.meal_budget_default or 300,
                 "fitness_goal": record.fitness_goal or "maintenance",
                 "target_protein": record.protein_target or 30,
                 "target_calories": record.calorie_target or 600,
                 "dietary_preference": record.diet_preference or "any",
+                "age": record.age,
+                "gender": record.gender,
+                "height_cm": record.height_cm,
+                "weight_kg": record.weight_kg,
+                "activity_level": record.activity_level or "moderate",
+                "preferred_meal_times": record.preferred_meal_times or {},
+                "spice_tolerance": record.spice_tolerance or "medium",
                 "preferences": []
             }
 
@@ -82,6 +96,14 @@ class UserMemoryManager:
                 record.dislikes = self.profile.get("dislikes", [])
                 record.favorite_cuisines = self.profile.get("favorite_cuisines", [])
                 record.fitness_goal = self.profile.get("fitness_goal", "maintenance")
+                record.age = self.profile.get("age")
+                record.gender = self.profile.get("gender")
+                record.height_cm = self.profile.get("height_cm")
+                record.weight_kg = self.profile.get("weight_kg")
+                record.activity_level = self.profile.get("activity_level", "moderate")
+                record.meal_budget_default = self.profile.get("typical_budget", 300)
+                record.preferred_meal_times = self.profile.get("preferred_meal_times", {})
+                record.spice_tolerance = self.profile.get("spice_tolerance", "medium")
                 self.db.commit()
                 log_info("User memory profile saved to database successfully.")
                 return True
@@ -154,9 +176,17 @@ class UserMemoryManager:
         if budget:
             merged["typical_budget"] = budget
             
-        protein = session_constraints.get("protein_target_g") or session_constraints.get("protein_goal")
+        protein = (
+            session_constraints.get("protein_target_g")
+            or session_constraints.get("protein_target")
+            or session_constraints.get("protein_goal")
+        )
         if protein:
             merged["target_protein"] = protein
+
+        calories = session_constraints.get("calorie_target") or session_constraints.get("target_calories")
+        if calories:
+            merged["target_calories"] = calories
             
         goal_text = session_constraints.get("user_goal") or session_constraints.get("query")
         if goal_text:

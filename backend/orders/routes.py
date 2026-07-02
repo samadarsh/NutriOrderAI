@@ -1,4 +1,4 @@
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 import time
 from fastapi import APIRouter, Depends, HTTPException, Query
 from backend.auth.sessions import get_current_user_id

@@ -324,7 +324,7 @@ export default function NutriOrderDashboard() {
   };
 
   // Smart Relaxation Apply handler
-  const handleRelaxationApply = async (patch: Record<string, any>) => {
+  const handleRelaxationApply = async (patch: Record<string, unknown>) => {
     setSearchLoading(true);
     try {
       const res = await api.searchRecommendations(
