@@ -7,8 +7,10 @@ SESSION_COOKIE = APIKeyCookie(name="nutriorder_session", auto_error=False)
 
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
+from config.settings import get_settings
+
 def _get_encryption_key() -> bytes:
-    key_str = os.getenv("ENCRYPTION_KEY")
+    key_str = get_settings().encryption_key
     if not key_str:
         raise ValueError("ENCRYPTION_KEY environment variable is not configured.")
     try:
@@ -58,7 +60,8 @@ async def get_current_user_id(request: Request) -> str:
     """
     session_id = request.cookies.get("nutriorder_session")
     
-    is_mock = os.getenv("USE_MOCK_MCP", "true").lower() == "true" or os.getenv("APP_ENV") == "development"
+    settings = get_settings()
+    is_mock = settings.use_mock_mcp or settings.app_env == "development"
     
     if not session_id and is_mock:
         # Check overrides for Swagger testing

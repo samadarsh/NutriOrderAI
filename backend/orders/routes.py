@@ -200,17 +200,13 @@ async def confirm_order_details(
             detail=f"Cannot confirm details when in state {current_status.value}."
         )
         
-    transition_session_status(db, session_record, OrderStatus.USER_CONFIRMED)
-    
-    # Save a CONFIRMATION event log
-    from backend.db.models import OrderEvent
-    event = OrderEvent(
-        order_session_id=session_id,
+    transition_session_status(
+        db,
+        session_record,
+        OrderStatus.USER_CONFIRMED,
         event_type="USER_CONFIRMATION",
         payload={"confirmed_at": str(time.time()), "total": session_record.total}
     )
-    db.add(event)
-    db.commit()
     
     return {
         "session_id": session_id,

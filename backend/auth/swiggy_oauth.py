@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from backend.db.session import get_db
 from backend.db.models import User, SwiggyToken, UserProfile
 from backend.auth.sessions import encrypt_token
+from config.settings import get_settings
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
@@ -99,7 +100,8 @@ async def demo_login(response: Response, db: Session = Depends(get_db)) -> Dict[
     Demo login endpoint for mock-mode testing.
     Auto-provisions a demo user and attaches the session cookie.
     """
-    is_mock = os.getenv("USE_MOCK_MCP", "true").lower() == "true" or os.getenv("APP_ENV") == "development"
+    settings = get_settings()
+    is_mock = settings.use_mock_mcp or settings.app_env == "development"
     if not is_mock:
         raise HTTPException(status_code=403, detail="Demo login is disabled in production mode.")
         
@@ -154,3 +156,38 @@ async def logout(response: Response) -> Dict[str, Any]:
     """
     response.delete_cookie("nutriorder_session")
     return {"success": True, "message": "Logged out successfully."}
+
+@router.get("/swiggy/status")
+async def swiggy_status(db: Session = Depends(get_db)) -> Dict[str, Any]:
+    """
+    Checks configuration completeness and staging credentials readiness without leaking secrets.
+    """
+    settings = get_settings()
+    
+    encryption_ok = False
+    if settings.encryption_key:
+        try:
+            from backend.auth.sessions import _get_encryption_key
+            _get_encryption_key()
+            encryption_ok = True
+        except Exception:
+            pass
+            
+    db_connected = False
+    try:
+        from sqlalchemy import text
+        db.execute(text("SELECT 1"))
+        db_connected = True
+    except Exception:
+        pass
+        
+    return {
+        "success": True,
+        "use_mock_mcp": settings.use_mock_mcp,
+        "swiggy_env": settings.swiggy_env,
+        "database_connected": db_connected,
+        "encryption_key_configured": encryption_ok,
+        "client_id_configured": bool(settings.swiggy_client_id),
+        "client_secret_configured": bool(settings.swiggy_client_secret),
+        "redirect_uri_configured": bool(settings.swiggy_redirect_uri),
+    }

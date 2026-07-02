@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 import datetime
 from sqlalchemy.orm import Session
 from backend.db.models import OrderSession, OrderEvent
@@ -40,7 +40,7 @@ def validate_state_transition(current: OrderStatus, target: OrderStatus) -> bool
     """
     return target in ALLOWED_TRANSITIONS.get(current, [])
 
-def transition_session_status(db: Session, session_record: OrderSession, target: OrderStatus) -> OrderSession:
+def transition_session_status(db: Session, session_record: OrderSession, target: OrderStatus, event_type: str = "STATUS_TRANSITION", payload: Optional[Dict[str, Any]] = None) -> OrderSession:
     """
     Safely transitions the session state and logs a status transition event in the DB.
     """
@@ -52,10 +52,14 @@ def transition_session_status(db: Session, session_record: OrderSession, target:
     session_record.updated_at = datetime.datetime.now()
     
     # Create audit event
+    default_payload = {"from_status": current.value, "to_status": target.value}
+    if payload:
+        default_payload.update(payload)
+        
     event = OrderEvent(
         order_session_id=session_record.id,
-        event_type=f"STATUS_TRANSITION",
-        payload={"from_status": current.value, "to_status": target.value}
+        event_type=event_type,
+        payload=default_payload
     )
     db.add(event)
     db.commit()

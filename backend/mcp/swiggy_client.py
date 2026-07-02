@@ -5,6 +5,7 @@ from mcp.mcp_mock import MockSwiggyFoodMCP
 from backend.db.session import SessionLocal
 from backend.db.models import SwiggyToken
 from backend.auth.sessions import decrypt_token
+from config.settings import get_settings
 
 class ProductionSwiggyClient:
     """
@@ -25,7 +26,8 @@ class ProductionSwiggyClient:
             return self._client
 
         # Mock mode fallback
-        if os.getenv("USE_MOCK_MCP", "true").lower() == "true":
+        settings = get_settings()
+        if settings.use_mock_mcp:
             self._client = MockSwiggyFoodMCP(user_id=self.user_id)
             return self._client
             
@@ -39,7 +41,7 @@ class ProductionSwiggyClient:
             decrypted_token = decrypt_token(token_record.encrypted_access_token)
             
             self._client = SwiggyFoodMCPClient(
-                base_url=None,  # Defaults to staging URL
+                base_url=settings.swiggy_mcp_base_url,
                 token=decrypted_token
             )
             return self._client

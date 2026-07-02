@@ -833,3 +833,83 @@ def test_feedback_endpoint_fastapi_contract():
             os.environ["APP_ENV"] = original_app_env
         else:
             os.environ.pop("APP_ENV", None)
+
+def test_sprint3_settings_resolution():
+    """Verify that settings correctly parses comma-separated CORS allowed origins and settings properties."""
+    import os
+    from config.settings import get_settings
+    
+    orig_cors = os.environ.get("CORS_ALLOWED_ORIGINS")
+    try:
+        os.environ["CORS_ALLOWED_ORIGINS"] = "http://siteA.com ,  https://siteB.com"
+        settings = get_settings()
+        assert "http://siteA.com" in settings.cors_allowed_origins
+        assert "https://siteB.com" in settings.cors_allowed_origins
+        assert len(settings.cors_allowed_origins) == 2
+    finally:
+        if orig_cors is not None:
+            os.environ["CORS_ALLOWED_ORIGINS"] = orig_cors
+        else:
+            os.environ.pop("CORS_ALLOWED_ORIGINS", None)
+
+def test_sprint3_request_id_middleware():
+    """Verify that the FastAPI app generates and returns request IDs in headers."""
+    from fastapi.testclient import TestClient
+    from backend.main import app
+    
+    client = TestClient(app)
+    response = client.get("/health")
+    assert response.status_code == 200
+    assert "X-Request-ID" in response.headers
+    # UUID check
+    import uuid
+    val = response.headers["X-Request-ID"]
+    uuid.UUID(val)
+
+def test_sprint3_centralized_order_event_audit():
+    """Verify that transition_session_status correctly appends status audits and optional payloads."""
+    from backend.db.session import SessionLocal
+    from backend.db.models import OrderSession, OrderEvent
+    from backend.orders.state_machine import transition_session_status, OrderStatus
+    
+    db = SessionLocal()
+    try:
+        sess = OrderSession(id="sess_audit_test", user_id="user_audit", status=OrderStatus.START.value)
+        db.add(sess)
+        db.commit()
+        
+        # Transition
+        transition_session_status(
+            db,
+            sess,
+            OrderStatus.ADDRESS_SELECTED,
+            event_type="ADDRESS_SELECTION",
+            payload={"address_id": "addr_123"}
+        )
+        
+        # Verify
+        events = db.query(OrderEvent).filter(OrderEvent.order_session_id == "sess_audit_test").all()
+        assert len(events) == 1
+        assert events[0].event_type == "ADDRESS_SELECTION"
+        assert events[0].payload["from_status"] == "START"
+        assert events[0].payload["to_status"] == "ADDRESS_SELECTED"
+        assert events[0].payload["address_id"] == "addr_123"
+    finally:
+        db.query(OrderEvent).filter(OrderEvent.order_session_id == "sess_audit_test").delete()
+        db.query(OrderSession).filter(OrderSession.id == "sess_audit_test").delete()
+        db.commit()
+        db.close()
+
+def test_sprint3_auth_status_endpoint():
+    """Verify that /auth/swiggy/status parses settings correctly."""
+    from fastapi.testclient import TestClient
+    from backend.main import app
+    
+    client = TestClient(app)
+    response = client.get("/auth/swiggy/status")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["success"] is True
+    assert "use_mock_mcp" in data
+    assert "database_connected" in data
+    assert "encryption_key_configured" in data

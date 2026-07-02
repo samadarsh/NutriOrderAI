@@ -37,6 +37,10 @@ def run_suite():
         ("test_search_request_schema", test_nutrition.test_search_request_schema),
         ("test_db_memory_loads_biometrics_for_target_engine", test_nutrition.test_db_memory_loads_biometrics_for_target_engine),
         ("test_pipeline_relaxation_patch_overrides_computed_targets", test_nutrition.test_pipeline_relaxation_patch_overrides_computed_targets),
+        ("test_sprint3_settings_resolution", test_integration.test_sprint3_settings_resolution),
+        ("test_sprint3_request_id_middleware", test_integration.test_sprint3_request_id_middleware),
+        ("test_sprint3_centralized_order_event_audit", test_integration.test_sprint3_centralized_order_event_audit),
+        ("test_sprint3_auth_status_endpoint", test_integration.test_sprint3_auth_status_endpoint),
     ]
 
     passed = 0

@@ -1,6 +1,10 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
+import uuid
+import time
+from config.settings import get_settings
+from agent.observability import log_info
 
 # Import database session, engine and trigger models registration
 from backend.db.session import engine, Base
@@ -45,10 +49,32 @@ def init_db():
                     if col_name not in columns:
                         conn.execute(text(f"ALTER TABLE user_profiles ADD COLUMN {col_name} {col_type}"))
 
-# CORS configuration allowing explicit localhost frontend origin with credentials enabled
+# Request ID and logging middleware
+@app.middleware("http")
+async def add_request_id_and_logging(request: Request, call_next):
+    request_id = str(uuid.uuid4())
+    request.state.request_id = request_id
+    
+    method = request.method
+    path = request.url.path
+    query = request.url.query
+    
+    start_time = time.time()
+    response = await call_next(request)
+    duration = time.time() - start_time
+    
+    response.headers["X-Request-ID"] = request_id
+    
+    log_info(
+        f"Request finished. ID: {request_id} | {method} {path}{'?' + query if query else ''} | Status: {response.status_code} | Duration: {duration:.3f}s"
+    )
+    return response
+
+# CORS configuration dynamically resolving allowed origins from settings
+settings = get_settings()
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=settings.cors_allowed_origins or ["http://localhost:3000"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

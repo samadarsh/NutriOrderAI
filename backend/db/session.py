@@ -3,8 +3,9 @@ from typing import Generator
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, Session, declarative_base
 
-# Default to SQLite database for easy local execution and staging integration
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./nutriorder.db")
+from config.settings import get_settings
+
+DATABASE_URL = get_settings().database_url
 
 connect_args = {}
 if DATABASE_URL.startswith("sqlite"):
