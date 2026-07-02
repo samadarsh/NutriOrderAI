@@ -22,7 +22,7 @@ class Settings:
     cors_allowed_origins: List[str] = field(default_factory=list)
 
 def get_settings() -> Settings:
-    cors_origins_str = os.getenv("CORS_ALLOWED_ORIGINS", "http://localhost:3000")
+    cors_origins_str = os.getenv("CORS_ALLOWED_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000")
     origins = [orig.strip() for orig in cors_origins_str.split(",") if orig.strip()]
     
     return Settings(
