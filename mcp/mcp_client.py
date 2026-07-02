@@ -1,8 +1,8 @@
-import os
 import requests
 import json
 from typing import Any, Dict, List, Optional
 from agent.observability import log_info, log_error
+from config.settings import get_settings
 
 class SwiggyMCPError(Exception):
     """Base exception for Swiggy MCP client errors."""
@@ -20,9 +20,9 @@ class SwiggyAuthError(SwiggyMCPError):
 
 class SwiggyFoodMCPClient:
     def __init__(self, base_url: Optional[str] = None, token: Optional[str] = None) -> None:
-        # Default to staging URL if not specified
-        self.base_url = base_url or os.getenv("SWIGGY_BASE_URL", "https://mcp-staging.swiggy.com/food")
-        self.token = token or os.getenv("SWIGGY_TOKEN", "")
+        settings = get_settings()
+        self.base_url = base_url or settings.swiggy_mcp_base_url
+        self.token = token or settings.swiggy_token
 
     def call_tool(self, tool_name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Generic method to call a Swiggy MCP tool using standard JSON-RPC 2.0 tools/call."""
@@ -178,7 +178,8 @@ class SwiggyFoodMCPClient:
     def place_food_order(self, addressId: str, paymentMethod: Optional[str] = "COD") -> Dict[str, Any]:
         # Lock safety check: staging placement requires both explicit staging mode
         # and an explicit allow flag. Never let either flag alone unlock ordering.
-        if os.getenv("SWIGGY_ENV") != "staging" or os.getenv("ALLOW_PLACE_ORDER") != "true":
+        settings = get_settings()
+        if settings.swiggy_env != "staging" or not settings.allow_place_order:
             raise SwiggyMCPError(
                 "Safety Lock: place_food_order is disabled unless SWIGGY_ENV=staging "
                 "and ALLOW_PLACE_ORDER=true."

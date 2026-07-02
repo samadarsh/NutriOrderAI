@@ -183,11 +183,18 @@ This repository currently focuses on:
 Create a `.env` file in the root directory to configure the application:
 ```ini
 # MCP Modes
+APP_ENV=development
 USE_MOCK_MCP=true              # Set to false to connect to staging
+SWIGGY_ENV=mock                # mock | staging | production
+ALLOW_PLACE_ORDER=false
 
 # Staging API Configuration
-SWIGGY_BASE_URL=https://mcp-staging.swiggy.com/food
-SWIGGY_TOKEN=your_oauth_token   # Swiggy temporary OAuth bearer token (valid 5 days)
+SWIGGY_MCP_BASE_URL=https://mcp-staging.swiggy.com/food
+SWIGGY_TOKEN=your_oauth_token   # Optional temporary bearer token for local client testing
+SWIGGY_CLIENT_ID=
+SWIGGY_CLIENT_SECRET=
+SWIGGY_REDIRECT_URI=http://localhost:8000/auth/swiggy/callback
+CORS_ALLOWED_ORIGINS=http://localhost:3000
 
 # LLM Parser Settings
 GROQ_API_KEY=gsk_your_api_key  # Required for voice transcription/intent parsing
@@ -196,9 +203,9 @@ GROQ_MODEL=llama-3.1-8b-instant
 
 ### 🔑 Staging Integration Setup
 1. Toggle `USE_MOCK_MCP=false` in your `.env`.
-2. Generate your Swiggy temporary OAuth bearer token (expires in 5 days).
-3. Paste the token into the `SWIGGY_TOKEN` field in your `.env` or input it in the Streamlit Sidebar directly.
-4. Run the Streamlit application to query the live Swiggy MCP Staging endpoint at `https://mcp-staging.swiggy.com/food`.
+2. Set `SWIGGY_ENV=staging` and configure the Swiggy client credentials once Swiggy issues them.
+3. Keep `ALLOW_PLACE_ORDER=false` until you are intentionally validating the protected staging checkout path.
+4. Use `/auth/swiggy/status` to confirm database, encryption, and credential readiness before live MCP calls.
 
 ### ⚠️ Stricter Safety Warning (No Production Orders)
 * This codebase **never** places real production orders.

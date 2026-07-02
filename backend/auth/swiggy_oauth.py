@@ -4,6 +4,7 @@ import hashlib
 import base64
 import datetime
 from typing import Dict, Any
+from urllib.parse import urlencode
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy.orm import Session
 from backend.db.session import get_db
@@ -19,16 +20,32 @@ def generate_pkce_pair():
     challenge = base64.urlsafe_b64encode(sha256).decode('utf-8').replace('=', '')
     return verifier, challenge
 
+def _is_mock_or_dev() -> bool:
+    settings = get_settings()
+    return settings.use_mock_mcp or settings.app_env == "development"
+
 @router.get("/swiggy/start")
 async def start_swiggy_oauth() -> Dict[str, str]:
     """
     Step 1 of Swiggy OAuth 2.1 PKCE Flow.
     Generates PKCE verifier and challenge, redirecting to Swiggy consent.
     """
+    settings = get_settings()
+    client_id = settings.swiggy_client_id or ("mock_client" if _is_mock_or_dev() else "")
+    if not client_id:
+        raise HTTPException(status_code=503, detail="SWIGGY_CLIENT_ID is not configured.")
+
     verifier, challenge = generate_pkce_pair()
+    params = {
+        "response_type": "code",
+        "client_id": client_id,
+        "redirect_uri": settings.swiggy_redirect_uri,
+        "code_challenge": challenge,
+        "code_challenge_method": "S256",
+    }
     return {
         "code_challenge": challenge,
-        "redirect_url": f"https://auth.swiggy.com/oauth/authorize?response_type=code&client_id=prod_client&code_challenge={challenge}&code_challenge_method=S256"
+        "redirect_url": f"{settings.swiggy_auth_url}?{urlencode(params)}"
     }
 
 @router.get("/swiggy/callback")
@@ -42,6 +59,12 @@ async def swiggy_oauth_callback(
     Step 2 of Swiggy OAuth 2.1 PKCE Flow.
     Exchanges authorization code, encrypts token, and stores User Session in DB.
     """
+    if not _is_mock_or_dev():
+        raise HTTPException(
+            status_code=501,
+            detail="Real Swiggy OAuth token exchange is not enabled until staging credentials and token endpoint details are configured."
+        )
+
     # Exchange code for token (simulated for stub callback validation)
     simulated_token = f"token_swiggy_{secrets.token_hex(16)}"
     

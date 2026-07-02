@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from "react";
-import { api, UserProfile, Address, RecommendationMeal, CartInfo } from "../lib/api";
+import { api, BASE_URL, UserProfile, Address, RecommendationMeal, CartInfo } from "../lib/api";
 import OnboardingPanel from "../components/OnboardingPanel";
 import PriorityControls, { PriorityWeights } from "../components/PriorityControls";
 import RecommendationCard from "../components/RecommendationCard";
@@ -117,7 +117,7 @@ export default function NutriOrderDashboard() {
   // Logout handler
   const handleLogout = async () => {
     try {
-      await fetch("http://localhost:8000/auth/logout", { method: "POST", credentials: "include" });
+      await fetch(`${BASE_URL}/auth/logout`, { method: "POST", credentials: "include" });
     } catch {
       // Ignore
     }

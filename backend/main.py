@@ -57,7 +57,6 @@ async def add_request_id_and_logging(request: Request, call_next):
     
     method = request.method
     path = request.url.path
-    query = request.url.query
     
     start_time = time.time()
     response = await call_next(request)
@@ -66,7 +65,7 @@ async def add_request_id_and_logging(request: Request, call_next):
     response.headers["X-Request-ID"] = request_id
     
     log_info(
-        f"Request finished. ID: {request_id} | {method} {path}{'?' + query if query else ''} | Status: {response.status_code} | Duration: {duration:.3f}s"
+        f"Request finished. ID: {request_id} | {method} {path} | Status: {response.status_code} | Duration: {duration:.3f}s"
     )
     return response
 
