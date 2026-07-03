@@ -190,6 +190,41 @@ export interface CouponsResponse {
   coupons: Coupon[];
 }
 
+export interface CoachStatusResponse {
+  target_calories: number;
+  target_protein: number;
+  consumed_calories: number;
+  consumed_protein: number;
+  remaining_calories: number;
+  remaining_protein: number;
+}
+
+export interface NutritionEntry {
+  id: number;
+  user_id: string;
+  entry_date: string;
+  meal_name: string;
+  restaurant_name?: string | null;
+  calories: number;
+  protein_g: number;
+  carbs_g?: number | null;
+  fat_g?: number | null;
+  source: string;
+  confidence: number;
+  is_estimated: boolean;
+  order_session_id?: string | null;
+  created_at: string;
+}
+
+export interface CoachNextMealResponse {
+  success: boolean;
+  message: string;
+  target_met?: boolean;
+  status?: string;
+  today_status?: CoachStatusResponse;
+  results?: RecommendationResponse;
+}
+
 
 // API Endpoints
 export const api = {
@@ -345,6 +380,39 @@ export const api = {
     return apiFetch<CartResponse>(`/orders/session/${sessionId}/coupon/apply`, {
       method: "POST",
       body: JSON.stringify({ coupon_code: couponCode }),
+    });
+  },
+
+  /**
+   * Fetches the user's daily health targets and consumed totals.
+   */
+  async getCoachStatus(): Promise<CoachStatusResponse> {
+    return apiFetch<CoachStatusResponse>("/coach/today");
+  },
+
+  /**
+   * Manually logs a meal entry.
+   */
+  async addManualEntry(entry: { meal_name: string; calories: number; protein_g: number; carbs_g?: number; fat_g?: number }): Promise<NutritionEntry> {
+    return apiFetch<NutritionEntry>("/coach/manual-entry", {
+      method: "POST",
+      body: JSON.stringify(entry),
+    });
+  },
+
+  /**
+   * Fetches today's nutrition logs.
+   */
+  async getCoachHistory(): Promise<NutritionEntry[]> {
+    return apiFetch<NutritionEntry[]>("/coach/history");
+  },
+
+  /**
+   * Generates coach recommended next meals based on remaining targets.
+   */
+  async getCoachNextMeal(): Promise<CoachNextMealResponse> {
+    return apiFetch<CoachNextMealResponse>("/coach/next-meal", {
+      method: "POST",
     });
   },
 };

@@ -7,6 +7,7 @@ import PriorityControls, { PriorityWeights } from "../components/PriorityControl
 import RecommendationCard from "../components/RecommendationCard";
 import RelaxationOptions, { RelaxationOption } from "../components/RelaxationOptions";
 import FeedbackModal from "../components/FeedbackModal";
+import CoachDashboard, { CoachDashboardRef } from "../components/CoachDashboard";
 
 export default function NutriOrderDashboard() {
   // Authentication & Initialization
@@ -26,6 +27,7 @@ export default function NutriOrderDashboard() {
   const [dislikes, setDislikes] = useState<string[]>([]);
   const [favCuisines, setFavCuisines] = useState<string[]>([]);
   const [dietPreference, setDietPreference] = useState<string>("any");
+  const coachDashboardRef = React.useRef<CoachDashboardRef>(null);
 
   // Session & Recommendation States
   const [activeSessionId, setActiveSessionId] = useState<string>("");
@@ -300,6 +302,9 @@ export default function NutriOrderDashboard() {
       const orderId = res.order_res?.orderId || res.order_id || `order_mcp_${Math.floor(100000 + Math.random() * 900000)}`;
       setPlacedOrderId(orderId);
       setSessionStatus(res.status);
+
+      // Refresh Coach dashboard data!
+      coachDashboardRef.current?.refreshCoachData();
 
       // Start live order tracking simulator
       let step = 0;
@@ -631,9 +636,9 @@ export default function NutriOrderDashboard() {
         </main>
       ) : (
         // Dashboard Workflow Panel
-        <main className="flex-1 max-w-6xl w-full mx-auto px-4 py-8 grid grid-cols-1 lg:grid-cols-12 gap-8">
+        <main className="flex-1 max-w-7xl w-full mx-auto px-4 py-8 grid grid-cols-1 lg:grid-cols-12 gap-8">
           {/* Left Columns: Address, Profile & Query */}
-          <div className="lg:col-span-5 flex flex-col gap-8">
+          <div className="lg:col-span-4 flex flex-col gap-8">
 
             {/* Dynamic Priorities Control */}
             <PriorityControls weights={priorityWeights} onChange={setPriorityWeights} />
@@ -864,8 +869,8 @@ export default function NutriOrderDashboard() {
             </section>
           </div>
 
-          {/* Right Columns: Recommendations & Checkout Cart */}
-          <div className="lg:col-span-7 flex flex-col gap-8">
+          {/* Middle Column: Recommendations & Checkout Cart */}
+          <div className="lg:col-span-4 flex flex-col gap-8">
             {/* Step 4: Recommendations results list */}
             <section className="bg-slate-900/60 backdrop-blur-md border border-slate-800 rounded-xl p-5 shadow-lg flex-1 flex flex-col gap-4">
               <h3 className="text-xs font-bold uppercase tracking-wider text-emerald-400">4. AI Meal Recommendations</h3>
@@ -1036,6 +1041,15 @@ export default function NutriOrderDashboard() {
                 </div>
               )}
             </section>
+          </div>
+
+          {/* Right Column: AI Nutrition Coach Dashboard */}
+          <div className="lg:col-span-4 flex flex-col gap-8">
+            <CoachDashboard
+              ref={coachDashboardRef}
+              activeSessionId={activeSessionId}
+              onSelectMeal={handleMealSelect}
+            />
           </div>
         </main>
       )}

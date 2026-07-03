@@ -15,6 +15,7 @@ from backend.auth import swiggy_oauth
 from backend.users import routes as users_routes
 from backend.orders import routes as orders_routes
 from backend.recommendations import routes as recommendations_routes
+from backend.coach import routes as coach_routes
 
 app = FastAPI(
     title="NutriOrder AI Production Backend",
@@ -27,7 +28,7 @@ app = FastAPI(
 def init_db():
     # 1. Create any missing tables first (e.g. order_feedbacks)
     Base.metadata.create_all(bind=engine)
-    
+
     # 2. Run SQLite-specific idempotent migrations for UserProfile columns
     if "sqlite" in engine.dialect.name:
         from sqlalchemy import inspect, text
@@ -44,6 +45,14 @@ def init_db():
                 ("preferred_meal_times", "JSON DEFAULT '{}'"),
                 ("spice_tolerance", "VARCHAR DEFAULT 'medium'")
             ]
+
+            # Idempotent column check for order_sessions
+            if inspector.has_table("order_sessions"):
+                sess_columns = [col["name"] for col in inspector.get_columns("order_sessions")]
+                with engine.begin() as conn:
+                    if "selected_item_nutrition" not in sess_columns:
+                        conn.execute(text("ALTER TABLE order_sessions ADD COLUMN selected_item_nutrition JSON"))
+
             with engine.begin() as conn:
                 for col_name, col_type in new_columns:
                     if col_name not in columns:
@@ -54,16 +63,16 @@ def init_db():
 async def add_request_id_and_logging(request: Request, call_next):
     request_id = str(uuid.uuid4())
     request.state.request_id = request_id
-    
+
     method = request.method
     path = request.url.path
-    
+
     start_time = time.time()
     response = await call_next(request)
     duration = time.time() - start_time
-    
+
     response.headers["X-Request-ID"] = request_id
-    
+
     log_info(
         f"Request finished. ID: {request_id} | {method} {path} | Status: {response.status_code} | Duration: {duration:.3f}s"
     )
@@ -84,6 +93,7 @@ app.include_router(swiggy_oauth.router)
 app.include_router(users_routes.router)
 app.include_router(orders_routes.router)
 app.include_router(recommendations_routes.router)
+app.include_router(coach_routes.router)
 
 @app.get("/health")
 async def health():

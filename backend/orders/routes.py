@@ -68,6 +68,7 @@ async def select_item(
 ) -> Dict[str, Any]:
     """
     Selects a specific meal item for the order session, transitioning status to ITEM_SELECTED.
+    Caches the item's nutrition details non-blockingly to database.
     """
     session_record = db.query(OrderSession).filter(
         OrderSession.id == session_id,
@@ -78,7 +79,58 @@ async def select_item(
 
     session_record.selected_restaurant_id = restaurant_id
     session_record.selected_item_id = item_id
+
+    # Non-blocking nutrition caching
+    try:
+        from backend.mcp.swiggy_client import ProductionSwiggyClient
+        swiggy = ProductionSwiggyClient(user_id=user_id)
+        client = swiggy._get_initialized_client()
+
+        address_id = session_record.address_id or "addr_home"
+        menu = client.get_restaurant_menu(addressId=address_id, restaurantId=restaurant_id)
+
+        item_details = next((i for i in menu if str(i.get("id")) == str(item_id)), None)
+        if item_details:
+            meal_name = item_details.get("name", "Swiggy Meal")
+            resolved_restaurant_name = "Swiggy Restaurant"
+            if hasattr(client, "_restaurants"):
+                for r in client._restaurants:
+                    if r["id"] == restaurant_id:
+                        resolved_restaurant_name = r["name"]
+                        break
+
+            from agent.nutrition_estimator import NutritionEstimator
+            desc = item_details.get("description") or item_details.get("item_description") or ""
+            est = NutritionEstimator.estimate_nutrition(meal_name, desc)
+
+            verified_protein = item_details.get("protein_g")
+            verified_cal = item_details.get("calories")
+            is_estimated = not (verified_protein and verified_cal)
+
+            protein = verified_protein if verified_protein else est["estimated_protein_g"]
+            calories = verified_cal if verified_cal else est["estimated_calories"]
+            fat = item_details.get("fat_g") or est["estimated_fat_g"]
+            carbs = item_details.get("carbs_g") or est["estimated_carbs_g"]
+            confidence = 1.0 if not is_estimated else est["confidence"]
+
+            session_record.selected_item_nutrition = {
+                "item_id": item_id,
+                "item_name": meal_name,
+                "restaurant_id": restaurant_id,
+                "restaurant_name": resolved_restaurant_name,
+                "protein_g": float(protein),
+                "calories": float(calories),
+                "carbs_g": float(carbs) if carbs is not None else None,
+                "fat_g": float(fat) if fat is not None else None,
+                "confidence": float(confidence),
+                "is_estimated": bool(is_estimated)
+            }
+    except Exception as cache_err:
+        from agent.observability import log_warn
+        log_warn(f"Non-blocking nutrition cache failed during item selection: {str(cache_err)}")
+
     transition_session_status(db, session_record, OrderStatus.ITEM_SELECTED)
+    db.commit()
 
     return {
         "session_id": session_id,
@@ -293,6 +345,14 @@ async def place_order(
         session_record.total = cart_total
         session_record.payment_method = "COD"
         db.commit()
+
+        # Safe, non-blocking auto-log completed order to nutrition entries
+        try:
+            from backend.coach.service import auto_log_ordered_meal
+            auto_log_ordered_meal(db, user_id, session_record)
+        except Exception as log_err:
+            from agent.observability import log_error
+            log_error(f"Top-level auto-log exception caught: {str(log_err)}", error_category="internal_error")
 
         return {
             "success": True,

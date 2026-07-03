@@ -1,5 +1,5 @@
 import datetime
-from sqlalchemy import Column, Integer, String, Float, DateTime, LargeBinary, ForeignKey, JSON, func, Boolean
+from sqlalchemy import Column, Integer, String, Float, DateTime, LargeBinary, ForeignKey, JSON, func, Boolean, Date
 from sqlalchemy.orm import relationship
 from backend.db.session import Base
 
@@ -77,6 +77,7 @@ class OrderSession(Base):
     selected_restaurant_id = Column(String, nullable=True)
     selected_item_id = Column(String, nullable=True)
     cart_snapshot = Column(JSON, nullable=True)
+    selected_item_nutrition = Column(JSON, nullable=True)
     total = Column(Float, nullable=True)
     payment_method = Column(String, nullable=True)
     created_at = Column(DateTime, default=func.now(), nullable=False)
@@ -109,3 +110,25 @@ class OrderFeedback(Base):
     spicy = Column(String, nullable=True)
     again = Column(Boolean, nullable=False, default=True)
     created_at = Column(DateTime, default=func.now(), nullable=False)
+
+
+class NutritionEntry(Base):
+    __tablename__ = "nutrition_entries"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    user_id = Column(String, ForeignKey("users.id"), nullable=False, index=True)
+    entry_date = Column(Date, nullable=False, index=True)
+    meal_name = Column(String, nullable=False)
+    restaurant_name = Column(String, nullable=True)
+    calories = Column(Float, nullable=False)
+    protein_g = Column(Float, nullable=False)
+    carbs_g = Column(Float, nullable=True)
+    fat_g = Column(Float, nullable=True)
+    source = Column(String, default="manual", nullable=False)  # "manual" or "order"
+    confidence = Column(Float, default=1.0, nullable=False)
+    is_estimated = Column(Boolean, default=False, nullable=False)
+    order_session_id = Column(String, ForeignKey("order_sessions.id"), unique=True, nullable=True)
+    created_at = Column(DateTime, default=func.now(), nullable=False)
+
+    user = relationship("User")
+    order_session = relationship("OrderSession")
