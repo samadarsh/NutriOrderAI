@@ -15,6 +15,7 @@ class Settings:
     swiggy_mcp_base_url: str
     swiggy_token: str
     swiggy_auth_url: str
+    swiggy_token_url: str
     swiggy_client_id: str
     swiggy_client_secret: str
     swiggy_redirect_uri: str
@@ -33,7 +34,8 @@ def get_settings() -> Settings:
         encryption_key=os.getenv("ENCRYPTION_KEY", ""),
         swiggy_mcp_base_url=os.getenv("SWIGGY_MCP_BASE_URL", "https://mcp-staging.swiggy.com/food"),
         swiggy_token=os.getenv("SWIGGY_TOKEN", ""),
-        swiggy_auth_url=os.getenv("SWIGGY_AUTH_URL", "https://auth.swiggy.com/oauth/authorize"),
+        swiggy_auth_url=os.getenv("SWIGGY_AUTH_URL", "https://mcp.swiggy.com/auth/authorize"),
+        swiggy_token_url=os.getenv("SWIGGY_TOKEN_URL", "https://mcp.swiggy.com/auth/token"),
         swiggy_client_id=os.getenv("SWIGGY_CLIENT_ID", ""),
         swiggy_client_secret=os.getenv("SWIGGY_CLIENT_SECRET", ""),
         swiggy_redirect_uri=os.getenv("SWIGGY_REDIRECT_URI", "http://localhost:8000/auth/swiggy/callback"),

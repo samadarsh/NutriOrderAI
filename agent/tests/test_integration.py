@@ -449,12 +449,15 @@ class MockSwiggyCheckoutClient:
         self.cart_total = cart_total
         self.recent_order_time_offset = recent_order_time_offset
         self.last_placed = False
+        self.payment_method = None
+        self.available_payment_methods = ["UPI", "COD"]
 
     def get_food_cart(self, addressId):
         return {
             "restaurantId": "rest_1",
             "total": self.cart_total,
-            "bill": {"total": self.cart_total}
+            "bill": {"total": self.cart_total},
+            "availablePaymentMethods": self.available_payment_methods
         }
 
     def get_food_orders(self, addressId):
@@ -465,6 +468,7 @@ class MockSwiggyCheckoutClient:
 
     def place_food_order(self, addressId, paymentMethod):
         self.last_placed = True
+        self.payment_method = paymentMethod
         return {"orderId": "order_ok", "status": "confirmed"}
 
     def update_food_cart(self, restaurantId, cartItems, addressId, restaurantName=None):
@@ -584,6 +588,8 @@ def test_production_checkout_validation_rules():
 
             db.refresh(sess)
             assert sess.status == OrderStatus.ORDER_PLACED.value
+            assert sess.payment_method == "COD"
+            assert mock_client.payment_method == "COD"
         finally:
             ProductionSwiggyClient._get_initialized_client = original_init
 

@@ -20,6 +20,7 @@ class MockSwiggyFoodMCP:
                 "restaurantName": None,
                 "total": 0,
                 "bill": {"total": 0},
+                "availablePaymentMethods": ["COD"],
             }
         if user_id not in self._orders_by_user:
             self._orders_by_user[user_id] = {}
@@ -215,6 +216,7 @@ class MockSwiggyFoodMCP:
             "restaurantName": resolved_restaurant_name,
             "total": total,
             "bill": {"total": total},
+            "availablePaymentMethods": ["COD"],
             "message": "Mock cart updated successfully."
         }
         self._carts_by_user[self.user_id] = self._cart
@@ -297,3 +299,12 @@ class MockSwiggyFoodMCP:
             "status": order["status"],
             "message": "Mock tracking response. No real delivery is in progress.",
         }
+
+    def flush_food_cart(self) -> Dict[str, Any]:
+        self._cart["restaurantId"] = None
+        self._cart["cartItems"] = []
+        self._cart["restaurantName"] = None
+        self._cart["total"] = 0
+        self._cart["bill"] = {"total": 0}
+        self._cart["availablePaymentMethods"] = ["COD"]
+        return {"success": True, "message": "Mock cart cleared successfully."}

@@ -97,3 +97,7 @@ class ProductionSwiggyClient:
     def track_food_order(self, orderId: str) -> Dict[str, Any]:
         client = self._get_initialized_client()
         return client.track_food_order(orderId=orderId)
+
+    def flush_food_cart(self) -> Dict[str, Any]:
+        client = self._get_initialized_client()
+        return client.flush_food_cart()

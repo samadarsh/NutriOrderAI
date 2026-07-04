@@ -3,9 +3,9 @@ import secrets
 import hashlib
 import base64
 import datetime
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from urllib.parse import urlencode
-from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, Cookie
 from sqlalchemy.orm import Session
 from backend.db.session import get_db
 from backend.db.models import User, SwiggyToken, UserProfile
@@ -25,23 +25,48 @@ def _is_mock_or_dev() -> bool:
     return settings.use_mock_mcp or settings.app_env == "development"
 
 @router.get("/swiggy/start")
-async def start_swiggy_oauth() -> Dict[str, str]:
+async def start_swiggy_oauth(response: Response) -> Dict[str, str]:
     """
     Step 1 of Swiggy OAuth 2.1 PKCE Flow.
-    Generates PKCE verifier and challenge, redirecting to Swiggy consent.
+    Generates PKCE verifier, CSRF state, challenge, and sets HTTPOnly cookies.
     """
     settings = get_settings()
     client_id = settings.swiggy_client_id or ("mock_client" if _is_mock_or_dev() else "")
     if not client_id:
         raise HTTPException(status_code=503, detail="SWIGGY_CLIENT_ID is not configured.")
 
+    is_local = settings.use_mock_mcp or settings.app_env == "development"
+    secure_cookie = not is_local
+
+    state = secrets.token_urlsafe(16)
     verifier, challenge = generate_pkce_pair()
+
+    # Set cookies with short 10-minute expiry
+    response.set_cookie(
+        key="oauth_code_verifier",
+        value=verifier,
+        httponly=True,
+        secure=secure_cookie,
+        samesite="lax",
+        max_age=600
+    )
+    response.set_cookie(
+        key="oauth_state",
+        value=state,
+        httponly=True,
+        secure=secure_cookie,
+        samesite="lax",
+        max_age=600
+    )
+
     params = {
         "response_type": "code",
         "client_id": client_id,
         "redirect_uri": settings.swiggy_redirect_uri,
         "code_challenge": challenge,
         "code_challenge_method": "S256",
+        "scope": "mcp:tools",
+        "state": state,
     }
     return {
         "code_challenge": challenge,
@@ -53,38 +78,97 @@ async def swiggy_oauth_callback(
     response: Response,
     code: str = Query(..., description="Authorization code returned by Swiggy"),
     state: str = Query(None, description="CSRF state protection string"),
+    oauth_code_verifier: Optional[str] = Cookie(None),
+    oauth_state: Optional[str] = Cookie(None),
     db: Session = Depends(get_db)
 ) -> Dict[str, Any]:
     """
     Step 2 of Swiggy OAuth 2.1 PKCE Flow.
     Exchanges authorization code, encrypts token, and stores User Session in DB.
     """
-    if not _is_mock_or_dev():
+    def clean_cookies():
+        response.delete_cookie("oauth_code_verifier")
+        response.delete_cookie("oauth_state")
+
+    # State validation
+    if not state or state != oauth_state:
+        clean_cookies()
         raise HTTPException(
-            status_code=501,
-            detail="Real Swiggy OAuth token exchange is not enabled until staging credentials and token endpoint details are configured."
+            status_code=400,
+            detail="OAuth state parameter mismatch or session expired. Potential CSRF detected."
         )
 
-    # Exchange code for token (simulated for stub callback validation)
-    simulated_token = f"token_swiggy_{secrets.token_hex(16)}"
-    
+    if not oauth_code_verifier:
+        clean_cookies()
+        raise HTTPException(
+            status_code=400,
+            detail="OAuth code verifier session expired or missing."
+        )
+
+    if not _is_mock_or_dev():
+        import requests
+        settings = get_settings()
+
+        payload = {
+            "grant_type": "authorization_code",
+            "client_id": settings.swiggy_client_id,
+            "client_secret": settings.swiggy_client_secret,
+            "code": code,
+            "code_verifier": oauth_code_verifier,
+            "redirect_uri": settings.swiggy_redirect_uri
+        }
+
+        try:
+            token_res = requests.post(
+                settings.swiggy_token_url,
+                json=payload,
+                headers={"Content-Type": "application/json"},
+                timeout=15
+            )
+            clean_cookies()
+            token_res.raise_for_status()
+            res_data = token_res.json()
+            access_token = res_data.get("access_token")
+            expires_in = res_data.get("expires_in", 432000)
+            scope = res_data.get("scope", "mcp:tools")
+
+            if not access_token:
+                raise HTTPException(status_code=502, detail="Swiggy token response missing access_token.")
+        except requests.exceptions.RequestException as e:
+            clean_cookies()
+            status = e.response.status_code if hasattr(e, "response") and e.response else 502
+            detail = f"Failed to exchange authorization code: {str(e)}"
+            if hasattr(e, "response") and e.response:
+                try:
+                    err_json = e.response.json()
+                    detail = err_json.get("error_description") or err_json.get("error") or detail
+                except Exception:
+                    pass
+            raise HTTPException(status_code=status, detail=detail)
+    else:
+        # Mock mode fallback
+        clean_cookies()
+        access_token = f"token_swiggy_{secrets.token_hex(16)}"
+        expires_in = 432000
+        scope = "mcp:tools"
+
     # Encrypt token securely
-    encrypted = encrypt_token(simulated_token)
-    
+    encrypted = encrypt_token(access_token)
+
     # Create User
     user_id = f"user_{secrets.token_hex(4)}"
     new_user = User(id=user_id, swiggy_user_ref=f"swiggy_ref_{user_id}")
     db.add(new_user)
-    
+
     # Save Token
     token_record = SwiggyToken(
         user_id=user_id,
         encrypted_access_token=encrypted,
-        expires_at=datetime.datetime.now() + datetime.timedelta(days=5),
-        scope="food:read food:write"
+        expires_at=datetime.datetime.now() + datetime.timedelta(seconds=expires_in),
+        scope=scope
     )
     db.add(token_record)
-    
+
     # Create Profile
     profile = UserProfile(
         user_id=user_id,
@@ -97,9 +181,9 @@ async def swiggy_oauth_callback(
         fitness_goal="maintenance"
     )
     db.add(profile)
-    
+
     db.commit()
-    
+
     # Set Cookie
     response.set_cookie(
         key="nutriorder_session",
@@ -109,7 +193,7 @@ async def swiggy_oauth_callback(
         samesite="lax",
         max_age=432000
     )
-    
+
     return {
         "success": True,
         "user_id": user_id,

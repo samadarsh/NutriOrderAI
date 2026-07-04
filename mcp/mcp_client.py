@@ -207,3 +207,8 @@ class SwiggyFoodMCPClient:
         args = {"orderId": orderId}
         res = self.call_tool("track_food_order", args)
         return self._unpack_and_normalize(res)
+
+    def flush_food_cart(self) -> Dict[str, Any]:
+        """Clears the staging cart. Swiggy flush_food_cart takes no tool arguments."""
+        res = self.call_tool("flush_food_cart", {})
+        return self._unpack_and_normalize(res)

@@ -320,6 +320,17 @@ async def place_order(
     if not user_confirmed:
         raise HTTPException(status_code=400, detail="Explicit user_confirmed parameter is required.")
 
+    # 0. Safety checkout lock checks (Ensure 403 Forbidden is explicitly returned if blocked)
+    from config.settings import get_settings
+    settings = get_settings()
+    is_mock = settings.use_mock_mcp or settings.app_env == "development"
+    if not is_mock:
+        if settings.swiggy_env != "staging" or not settings.allow_place_order:
+            raise HTTPException(
+                status_code=403,
+                detail="Safety Lock: place_food_order is disabled unless SWIGGY_ENV=staging and ALLOW_PLACE_ORDER=true."
+            )
+
     # 1. Fetch OrderSession from database
     session_record = db.query(OrderSession).filter(
         OrderSession.id == session_id,
@@ -359,11 +370,44 @@ async def place_order(
                 detail=f"Checkout blocked: Cart total of Rs {cart_total} exceeds the Swiggy Builders Club cap of Rs 1000."
             )
 
+        # Dynamic payment method selection from cart details.
+        # In staging/prod, never assume a payment method that Swiggy did not return.
+        raw_payment_methods = cart_info.get("availablePaymentMethods", []) or []
+        normalized_payment_methods = []
+        for method in raw_payment_methods:
+            if isinstance(method, str):
+                normalized_payment_methods.append(method)
+            elif isinstance(method, dict):
+                method_value = (
+                    method.get("method")
+                    or method.get("code")
+                    or method.get("type")
+                    or method.get("id")
+                    or method.get("name")
+                )
+                if method_value:
+                    normalized_payment_methods.append(str(method_value))
+
+        if not normalized_payment_methods:
+            if is_mock:
+                normalized_payment_methods = ["COD"]
+            else:
+                transition_session_status(db, session_record, OrderStatus.FAILED)
+                raise HTTPException(
+                    status_code=400,
+                    detail="Checkout blocked: Swiggy cart did not return any available payment methods."
+                )
+
+        payment_method = next(
+            (method for method in normalized_payment_methods if method.upper() == "COD"),
+            normalized_payment_methods[0]
+        )
+
         # 5. Execute placing safely using resilience layer checkout recovery policy
         from agent.resilience import place_order_safely
 
         def do_place():
-            return client.place_food_order(addressId=address_id, paymentMethod="COD")
+            return client.place_food_order(addressId=address_id, paymentMethod=payment_method)
 
         def do_check():
             return client.get_food_orders(addressId=address_id)
@@ -383,7 +427,7 @@ async def place_order(
         # Record final details
         session_record.selected_restaurant_id = cart_info.get("restaurantId") or session_record.selected_restaurant_id
         session_record.total = cart_total
-        session_record.payment_method = "COD"
+        session_record.payment_method = payment_method
         db.commit()
 
         # Safe, non-blocking auto-log completed order to nutrition entries

@@ -4,7 +4,7 @@ import traceback
 def run_suite():
     # Import test modules
     try:
-        from agent.tests import test_ranking, test_caching, test_fallback, test_integration, test_nutrition, test_coach, test_demo, test_observability
+        from agent.tests import test_ranking, test_caching, test_fallback, test_integration, test_nutrition, test_coach, test_demo, test_observability, test_oauth_pkce
     except ImportError as e:
         print(f"Failed to import test modules: {str(e)}")
         sys.exit(1)
@@ -54,6 +54,10 @@ def run_suite():
         ("test_address_selection_persistence", test_demo.test_address_selection_persistence),
         ("test_log_redaction_message", test_observability.test_log_redaction_message),
         ("test_log_redaction_extra", test_observability.test_log_redaction_extra),
+        ("test_swiggy_oauth_start_sets_cookies_and_returns_url", test_oauth_pkce.test_swiggy_oauth_start_sets_cookies_and_returns_url),
+        ("test_swiggy_oauth_callback_state_verification", test_oauth_pkce.test_swiggy_oauth_callback_state_verification),
+        ("test_swiggy_oauth_callback_mock_mode_success", test_oauth_pkce.test_swiggy_oauth_callback_mock_mode_success),
+        ("test_swiggy_oauth_callback_production_token_exchange", test_oauth_pkce.test_swiggy_oauth_callback_production_token_exchange),
     ]
 
     passed = 0
