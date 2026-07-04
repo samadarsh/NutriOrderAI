@@ -1,18 +1,27 @@
 import sys
+import argparse
 import requests
 
 def run_smoke_tests():
-    base_url = "http://localhost:8000"
+    parser = argparse.ArgumentParser(description="NutriOrder AI Smoke Test Suite")
+    parser.add_argument("url", nargs="?", default="http://localhost:8000", help="Target backend server URL")
+    parser.add_argument("--mode", choices=["mock", "staging"], default="mock", help="Deployment mode (mock or staging)")
+    parser.add_argument("--cookie", help="Pre-authenticated nutriorder_session cookie value for staging mode testing")
+    args = parser.parse_args()
+
+    base_url = args.url.rstrip("/")
     print("Starting NutriOrder AI Smoke Test Suite...")
-    print(f"Connecting to backend: {base_url}\n" + "-"*50)
+    print(f"Target URL: {base_url}")
+    print(f"Test Mode: {args.mode.upper()}")
+    print("-" * 50)
 
     try:
-        # 1. Health check
+        # 1. Health check (Staging + Mock)
         res_health = requests.get(f"{base_url}/health")
         assert res_health.status_code == 200, "Health check failed"
         print("[OK] Health check passed.")
 
-        # 2. Config status check
+        # 2. Config status check (Staging + Mock)
         res_status = requests.get(f"{base_url}/auth/swiggy/status")
         assert res_status.status_code == 200, "Swiggy status check failed"
         status_data = res_status.json()
@@ -25,21 +34,42 @@ def run_smoke_tests():
         # Share session cookies across calls
         session = requests.Session()
 
-        # 3. Demo login
-        res_login = session.post(f"{base_url}/auth/demo-login")
-        assert res_login.status_code == 200, "Demo login failed"
-        print("[OK] Authenticated demo login successfully.")
+        if args.mode == "staging":
+            if not args.cookie:
+                print("-" * 50)
+                print("[INFO] Staging mode active: Authentication cookie was not provided via --cookie.")
+                print("   Skipped authenticated endpoints (session start, address selection, coach, search).")
+                print("Smoke test completed successfully (unauthenticated stage).")
+                return 0
+            else:
+                # Attach user cookie
+                session.cookies.set("nutriorder_session", args.cookie)
+                print("[OK] Attached pre-authenticated nutriorder_session cookie.")
+        else:
+            # 3. Demo login (Mock only)
+            res_login = session.post(f"{base_url}/auth/demo-login")
+            assert res_login.status_code == 200, "Demo login failed"
+            print("[OK] Authenticated demo login successfully.")
 
-        # 4. Start session
+        # 4. Start session (Authenticated checks)
         res_sess = session.post(f"{base_url}/orders/session/start")
         assert res_sess.status_code == 200, "Start order session failed"
         session_id = res_sess.json()["session_id"]
         print(f"[OK] Spawned order session: {session_id}")
 
         # 5. Select address
-        res_addr = session.post(f"{base_url}/orders/session/{session_id}/select-address", params={"address_id": "addr_home"})
+        address_id = "addr_home"
+        if args.mode == "staging":
+            res_addresses = session.get(f"{base_url}/me/addresses")
+            assert res_addresses.status_code == 200, "Fetching saved addresses failed"
+            addresses = res_addresses.json()
+            assert addresses, "No saved Swiggy addresses available for staging smoke test"
+            address_id = addresses[0].get("id")
+            assert address_id, "Saved address response did not include an id"
+
+        res_addr = session.post(f"{base_url}/orders/session/{session_id}/select-address", params={"address_id": address_id})
         assert res_addr.status_code == 200, "Select address failed"
-        print("[OK] Selected delivery location 'addr_home'.")
+        print(f"[OK] Selected delivery location '{address_id}'.")
 
         # 6. Get coach status
         res_coach = session.get(f"{base_url}/coach/today")
@@ -62,11 +92,12 @@ def run_smoke_tests():
         print(f"   - Recommended Meal: {rec_meal.get('item_name')} from {rec_meal.get('restaurant_name')}")
         print(f"   - Estimated macros: {rec_meal.get('protein_g')}g protein, {rec_meal.get('calories')} kcal")
 
-        print("-"*50)
+        print("-" * 50)
         print("Smoke test suite completed successfully. Backend is healthy and staging-ready.")
         return 0
+
     except requests.exceptions.ConnectionError:
-        print("[FAIL] Connection failed. Please make sure your FastAPI backend server is running locally on port 8000.")
+        print(f"[FAIL] Connection failed. Please make sure your backend server is running at: {base_url}")
         return 1
     except AssertionError as e:
         print(f"[FAIL] Smoke test failed: {str(e)}")

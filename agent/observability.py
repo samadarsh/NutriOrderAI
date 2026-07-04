@@ -1,5 +1,6 @@
 import json
 import logging
+import re
 import time
 from collections import defaultdict
 from typing import Any, Dict
@@ -130,19 +131,64 @@ class MetricsTracker:
 
 metrics_tracker = MetricsTracker()
 
+SENSITIVE_KEYWORDS = [
+    "authorization", "cookie", "set-cookie", "token",
+    "access_token", "refresh_token", "client_secret",
+    "password", "api_key", "encryption_key"
+]
+
+def _redact_string(value: str) -> str:
+    value = re.sub(r'(?i)bearer\s+[a-zA-Z0-9_\-\.]+', 'Bearer [REDACTED]', value)
+    value = re.sub(r'(?i)nutriorder_session=[a-zA-Z0-9_\-\.]+', 'nutriorder_session=[REDACTED]', value)
+    value = re.sub(r'(?i)(token|api_key|client_secret|password|encryption_key)=[^&\s]+', r'\1=[REDACTED]', value)
+    return value
+
+def redact_sensitive_data(val: Any) -> Any:
+    """
+    Recursively redacts sensitive values matching authorization, cookies, tokens, or keys.
+    """
+    if isinstance(val, dict):
+        redacted = {}
+        for k, v in val.items():
+            k_lower = k.lower()
+            if any(s in k_lower for s in SENSITIVE_KEYWORDS):
+                redacted[k] = "[REDACTED]"
+            else:
+                redacted[k] = redact_sensitive_data(v)
+        return redacted
+    elif isinstance(val, list):
+        return [redact_sensitive_data(item) for item in val]
+    elif isinstance(val, str):
+        return _redact_string(val)
+    return val
+
+def redact_message(message: str) -> str:
+    """
+    Scans and redacts sensitive patterns in plain text log messages.
+    """
+    if not isinstance(message, str):
+        return message
+    return _redact_string(message)
+
 def log_info(message: str, extra: Dict[str, Any] = None):
     extra_data = extra or {}
-    logger.info(message, extra={"extra_data": extra_data})
-    metrics_tracker.add_log_entry("INFO", message, extra_data)
+    redacted_message = redact_message(message)
+    redacted_extra = redact_sensitive_data(extra_data)
+    logger.info(redacted_message, extra={"extra_data": redacted_extra})
+    metrics_tracker.add_log_entry("INFO", redacted_message, redacted_extra)
 
 def log_warn(message: str, extra: Dict[str, Any] = None):
     extra_data = extra or {}
-    logger.warning(message, extra={"extra_data": extra_data})
-    metrics_tracker.add_log_entry("WARNING", message, extra_data)
+    redacted_message = redact_message(message)
+    redacted_extra = redact_sensitive_data(extra_data)
+    logger.warning(redacted_message, extra={"extra_data": redacted_extra})
+    metrics_tracker.add_log_entry("WARNING", redacted_message, redacted_extra)
 
 def log_error(message: str, error_category: str, extra: Dict[str, Any] = None):
     extra_data = extra or {}
     extra_data["error_category"] = error_category
-    logger.error(message, extra={"extra_data": extra_data})
+    redacted_message = redact_message(message)
+    redacted_extra = redact_sensitive_data(extra_data)
+    logger.error(redacted_message, extra={"extra_data": redacted_extra})
     metrics_tracker.record_error(error_category)
-    metrics_tracker.add_log_entry("ERROR", f"[{error_category}] {message}", extra_data)
+    metrics_tracker.add_log_entry("ERROR", f"[{error_category}] {redacted_message}", redacted_extra)
