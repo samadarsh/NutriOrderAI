@@ -172,44 +172,44 @@ export default function PitchPage() {
   return (
     <main className="min-h-screen bg-[#0e1310] text-white">
       {/* Sticky Progress Bar */}
-      <div className="sticky top-0 z-50 bg-[#0e1310]/90 backdrop-blur-md border-b border-white/8">
-        <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2 text-sm font-bold text-white/70 hover:text-white transition">
-            <span className="flex h-7 w-7 items-center justify-center rounded bg-[#f4b544] text-xs font-black text-[#17211c]">B</span>
-            BiteWise
+      <div className="sticky top-0 z-50 bg-[#0e1310]/95 backdrop-blur-lg border-b border-white/8">
+        <div className="max-w-5xl mx-auto px-4 py-2.5 sm:py-3 flex items-center justify-between gap-2">
+          <Link href="/" className="flex items-center gap-2 text-sm font-bold text-white/70 hover:text-white transition-all shrink-0">
+            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#f4b544] text-xs font-black text-[#17211c]">B</span>
+            <span className="hidden sm:inline">BiteWise</span>
           </Link>
 
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1.5 sm:gap-1">
             {Array.from({ length: TOTAL_STEPS }, (_, i) => (
               <button
                 key={i}
                 onClick={() => scrollToStep(i + 1)}
-                className={`h-1.5 rounded-full transition-all ${
+                className={`h-2 sm:h-1.5 rounded-full transition-all duration-300 ${
                   i + 1 === currentStep
-                    ? "w-8 bg-[#f4b544]"
+                    ? "w-8 sm:w-8 bg-[#f4b544]"
                     : i + 1 < currentStep
                     ? "w-4 bg-[#f4b544]/50"
-                    : "w-4 bg-white/15"
+                    : "w-4 bg-white/15 hover:bg-white/25"
                 }`}
                 aria-label={`Go to step ${i + 1}`}
               />
             ))}
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
             {mode === "fallback" && (
-              <span className="text-[9px] font-bold uppercase px-2 py-0.5 rounded bg-amber-500/15 text-amber-400 border border-amber-500/25">
-                Preview Mode
+              <span className="text-[8px] sm:text-[9px] font-bold uppercase px-1.5 sm:px-2 py-0.5 rounded-md bg-amber-500/15 text-amber-400 border border-amber-500/25">
+                Preview
               </span>
             )}
             {isLive && (
-              <span className="text-[9px] font-bold uppercase px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/25">
-                ● Live Data
+              <span className="text-[8px] sm:text-[9px] font-bold uppercase px-1.5 sm:px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-400 border border-emerald-500/25">
+                ● Live
               </span>
             )}
             <Link
               href="/app"
-              className="text-xs font-bold text-white/50 hover:text-white transition"
+              className="hidden sm:inline text-xs font-bold text-white/50 hover:text-white transition-all"
             >
               Open App →
             </Link>
@@ -219,11 +219,11 @@ export default function PitchPage() {
 
       {/* Hero / Mode Selection */}
       {(mode === "checking" || mode === "live_ready") && (
-        <section className="min-h-[70vh] flex flex-col items-center justify-center text-center px-4">
-          <div className="mb-5 inline-flex rounded-md border border-[#f4b544]/40 bg-[#f4b544]/14 px-3 py-1 text-xs font-semibold uppercase text-[#ffd98a]">
+        <section className="min-h-[70vh] flex flex-col items-center justify-center text-center px-5">
+          <div className="mb-5 inline-flex rounded-full border border-[#f4b544]/30 bg-[#f4b544]/10 px-4 py-1.5 text-xs font-semibold uppercase tracking-wide text-[#ffd98a]">
             Product Walkthrough
           </div>
-          <h1 className="text-4xl sm:text-5xl font-black max-w-2xl leading-tight">
+          <h1 className="text-3xl sm:text-4xl md:text-5xl font-black max-w-2xl leading-tight">
             See BiteWise in action
           </h1>
           <p className="mt-4 text-sm text-white/60 max-w-lg leading-relaxed">

@@ -100,11 +100,11 @@ export default function HouseholdDashboard() {
   }
 
   return (
-    <div className="space-y-6 text-white max-w-7xl mx-auto px-4">
+    <div className="space-y-4 sm:space-y-6 text-white max-w-7xl mx-auto px-0 sm:px-4">
       {/* Header */}
       <div className="flex flex-col gap-2 md:flex-row md:justify-between md:items-center text-left">
         <div>
-          <h2 className="text-2xl font-black tracking-tight text-white flex items-center gap-2">
+          <h2 className="text-xl sm:text-2xl font-black tracking-tight text-white flex items-center gap-2">
             🏡 SmartPantry AI
           </h2>
           <p className="text-xs text-slate-400 font-semibold mt-1">
@@ -124,10 +124,10 @@ export default function HouseholdDashboard() {
       <LowStockAlerts onRefreshData={loadData} />
 
       {/* Main Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
 
         {/* Left Column: Cook Today + Pantry */}
-        <div className="lg:col-span-2 space-y-6">
+        <div className="lg:col-span-2 space-y-4 sm:space-y-6">
           <CookTodayPanel onPlanRecipe={handleMatchRecipe} />
           <PantryManager
             pantry={pantry}
@@ -137,7 +137,7 @@ export default function HouseholdDashboard() {
         </div>
 
         {/* Right Column: Family + Nutrition Insights */}
-        <div className="space-y-6">
+        <div className="space-y-4 sm:space-y-6">
           <HouseholdMembersCard
             members={household?.members || []}
             onAddMember={handleAddMember}
@@ -148,7 +148,7 @@ export default function HouseholdDashboard() {
       </div>
 
       {/* Bottom Row: Grocery List + Cart Preview */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
         <GroceryListPanel
           list={groceryList}
           onAddItem={handleAddGrocery}

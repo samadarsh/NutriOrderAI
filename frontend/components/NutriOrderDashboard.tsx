@@ -561,36 +561,39 @@ export default function NutriOrderDashboard() {
       <div className="fixed bottom-0 right-1/4 w-96 h-96 bg-blue-500/5 rounded-full blur-[120px] pointer-events-none" />
 
       {/* Top Navbar */}
-      <header className="border-b border-slate-900 bg-slate-950/80 backdrop-blur-md sticky top-0 z-50">
-        <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-2 cursor-pointer" onClick={handleReset}>
-            <span className="flex h-8 w-8 items-center justify-center rounded-md bg-[#f4b544] text-sm font-black text-slate-950">B</span>
-            <div className="leading-tight">
-              <span className="block text-lg font-bold bg-gradient-to-r from-emerald-400 to-lime-300 bg-clip-text text-transparent">
+      <header className="border-b border-slate-900 bg-slate-950/80 backdrop-blur-lg sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto px-4 h-14 sm:h-16 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 cursor-pointer shrink-0" onClick={handleReset}>
+            <span className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-lg bg-[#f4b544] text-xs sm:text-sm font-black text-slate-950">B</span>
+            <div className="leading-tight hidden sm:block">
+              <span className="block text-base font-bold bg-gradient-to-r from-emerald-400 to-lime-300 bg-clip-text text-transparent">
                 BiteWise
               </span>
               <span className="block text-[9px] uppercase tracking-wider text-slate-500 font-bold">
-                NutriOrder AI and SmartPantry AI
+                NutriOrder AI · SmartPantry AI
               </span>
             </div>
-            <span className="text-[10px] bg-emerald-500/10 text-emerald-400 font-semibold px-2 py-0.5 rounded border border-emerald-500/20">
+            <span className="block sm:hidden text-sm font-bold bg-gradient-to-r from-emerald-400 to-lime-300 bg-clip-text text-transparent">
+              BiteWise
+            </span>
+            <span className="hidden sm:inline text-[10px] bg-emerald-500/10 text-emerald-400 font-semibold px-2 py-0.5 rounded-md border border-emerald-500/20">
               Demo Staging
             </span>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 sm:gap-4">
             {isAuthenticated ? (
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 sm:gap-3">
                 <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
-                <span className="text-xs text-slate-400 font-mono">Demo Session Active</span>
+                <span className="hidden sm:inline text-xs text-slate-400 font-mono">Demo Session Active</span>
                 <button
                   onClick={() => setEditingProfile(true)}
-                  className="text-xs text-emerald-400 hover:text-emerald-300 font-medium px-2 py-1 rounded hover:bg-emerald-500/10 transition"
+                  className="text-xs text-emerald-400 hover:text-emerald-300 font-medium px-2 py-1 rounded-lg hover:bg-emerald-500/10 transition-all"
                 >
                   Edit Profile
                 </button>
                 <button
                   onClick={handleLogout}
-                  className="text-xs text-rose-400 hover:text-rose-300 font-medium px-2 py-1 rounded hover:bg-rose-500/10 transition"
+                  className="text-xs text-rose-400 hover:text-rose-300 font-medium px-2 py-1 rounded-lg hover:bg-rose-500/10 transition-all"
                 >
                   Logout
                 </button>
@@ -603,12 +606,12 @@ export default function NutriOrderDashboard() {
       {/* Main Container */}
       {!isAuthenticated ? (
         // Login Welcome Hero Screen
-        <main className="flex-1 max-w-4xl mx-auto px-4 flex flex-col items-center justify-center text-center py-20">
-          <div className="bg-slate-900/60 backdrop-blur-md border border-slate-800 p-10 rounded-2xl shadow-2xl max-w-xl w-full flex flex-col items-center gap-6">
-            <div className="h-16 w-16 bg-gradient-to-tr from-emerald-400 to-lime-300 rounded-2xl flex items-center justify-center text-3xl shadow-xl shadow-emerald-500/15">
+        <main className="flex-1 max-w-4xl mx-auto px-4 flex flex-col items-center justify-center text-center py-12 sm:py-20">
+          <div className="bg-slate-900/60 backdrop-blur-md border border-slate-800 p-6 sm:p-10 rounded-2xl shadow-2xl max-w-xl w-full flex flex-col items-center gap-5 sm:gap-6">
+            <div className="h-14 w-14 sm:h-16 sm:w-16 bg-gradient-to-tr from-emerald-400 to-lime-300 rounded-2xl flex items-center justify-center text-2xl sm:text-3xl shadow-xl shadow-emerald-500/15">
               🥗
             </div>
-            <h2 className="text-3xl font-extrabold tracking-tight text-white">
+            <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white">
               Welcome to <span className="bg-gradient-to-r from-emerald-400 to-lime-300 bg-clip-text text-transparent">BiteWise</span>
             </h2>
             <p className="text-slate-400 text-sm leading-relaxed">
@@ -618,7 +621,7 @@ export default function NutriOrderDashboard() {
             <button
               onClick={handleSwiggyLogin}
               disabled={authLoading}
-              className="w-full bg-[#f4b544] hover:bg-[#ffd071] text-[#17211c] font-black py-3.5 rounded-xl transition text-base shadow-xl flex items-center justify-center gap-2 disabled:cursor-not-allowed disabled:opacity-60"
+              className="w-full bg-[#f4b544] hover:bg-[#ffd071] text-[#17211c] font-black py-3.5 rounded-xl transition-all duration-200 text-sm sm:text-base shadow-xl hover:shadow-2xl hover:shadow-[#f4b544]/20 flex items-center justify-center gap-2 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {authLoading ? "Initializing..." : "Continue with Swiggy"}
             </button>
@@ -627,7 +630,7 @@ export default function NutriOrderDashboard() {
               <button
                 onClick={handleDemoLogin}
                 disabled={authLoading}
-                className="w-full bg-slate-800 hover:bg-slate-700 text-white font-bold py-3.5 rounded-xl transition text-base shadow-xl border border-slate-700 flex items-center justify-center gap-2 disabled:cursor-not-allowed disabled:opacity-60"
+                className="w-full bg-slate-800 hover:bg-slate-700 text-white font-bold py-3.5 rounded-xl transition-all duration-200 text-sm sm:text-base shadow-xl border border-slate-700 hover:border-slate-600 flex items-center justify-center gap-2 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {authLoading ? "Opening Sandbox..." : "Connect Demo Account"}
               </button>
@@ -635,7 +638,7 @@ export default function NutriOrderDashboard() {
 
             <Link
               href="/"
-              className="text-slate-400 hover:text-slate-200 text-sm font-semibold underline transition mt-2"
+              className="text-slate-400 hover:text-slate-200 text-sm font-semibold underline transition-all mt-1"
             >
               Back to Landing Page
             </Link>
@@ -748,7 +751,7 @@ export default function NutriOrderDashboard() {
         </main>
       ) : (
         // Dashboard Workflow Panel
-        <div className="flex-1 max-w-7xl w-full mx-auto px-4 py-8 flex flex-col gap-6">
+        <div className="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-4 py-4 sm:py-8 flex flex-col gap-4 sm:gap-6">
           <DemoControlBar
             onSeed={handleSeedDemo}
             onReset={handleResetDemo}
@@ -776,37 +779,37 @@ export default function NutriOrderDashboard() {
           )}
 
           {/* Product Switcher Navigation */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 border-b border-slate-900 pb-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 border-b border-slate-900 pb-4">
             <button
               onClick={() => setActiveTab("coach")}
-              className={`rounded-xl border p-4 text-left transition ${
+              className={`rounded-xl border p-3 sm:p-4 text-left transition-all duration-200 ${
                 activeTab === "coach"
                   ? "border-emerald-500 bg-emerald-500/10 shadow-lg shadow-emerald-500/5"
-                  : "border-slate-800 bg-slate-900/40 hover:border-slate-700"
+                  : "border-slate-800 bg-slate-900/40 hover:border-slate-700 hover:bg-slate-900/60"
               }`}
             >
-              <span className="block text-xs font-black uppercase tracking-wider text-emerald-400">NutriOrder AI</span>
-              <span className="mt-1 block text-sm font-bold text-slate-100">Health-aware Swiggy food ordering</span>
-              <span className="mt-1 block text-xs text-slate-500">Macros, meal ranking, coupons, safe checkout, nutrition logging.</span>
+              <span className="block text-[10px] sm:text-xs font-black uppercase tracking-wider text-emerald-400">NutriOrder AI</span>
+              <span className="mt-0.5 sm:mt-1 block text-xs sm:text-sm font-bold text-slate-100">Health-aware Swiggy food ordering</span>
+              <span className="hidden sm:block mt-1 text-xs text-slate-500">Macros, meal ranking, coupons, safe checkout, nutrition logging.</span>
             </button>
             <button
               onClick={() => setActiveTab("household")}
-              className={`rounded-xl border p-4 text-left transition ${
+              className={`rounded-xl border p-3 sm:p-4 text-left transition-all duration-200 ${
                 activeTab === "household"
                   ? "border-amber-500 bg-amber-500/10 shadow-lg shadow-amber-500/5"
-                  : "border-slate-800 bg-slate-900/40 hover:border-slate-700"
+                  : "border-slate-800 bg-slate-900/40 hover:border-slate-700 hover:bg-slate-900/60"
               }`}
             >
-              <span className="block text-xs font-black uppercase tracking-wider text-amber-400">SmartPantry AI</span>
-              <span className="mt-1 block text-sm font-bold text-slate-100">Household pantry and grocery intelligence</span>
-              <span className="mt-1 block text-xs text-slate-500">Low-stock alerts, recipe matching, grocery grouping, cart preview.</span>
+              <span className="block text-[10px] sm:text-xs font-black uppercase tracking-wider text-amber-400">SmartPantry AI</span>
+              <span className="mt-0.5 sm:mt-1 block text-xs sm:text-sm font-bold text-slate-100">Household pantry and grocery intelligence</span>
+              <span className="hidden sm:block mt-1 text-xs text-slate-500">Low-stock alerts, recipe matching, grocery grouping, cart preview.</span>
             </button>
           </div>
 
           {activeTab === "coach" ? (
-            <main className="grid grid-cols-1 lg:grid-cols-12 gap-8 w-full">
+            <main className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6 lg:gap-8 w-full">
             {/* Left Columns: Address, Profile & Query */}
-            <div className="lg:col-span-4 flex flex-col gap-8">
+            <div className="lg:col-span-4 flex flex-col gap-4 sm:gap-8">
 
             {/* Dynamic Priorities Control */}
             <PriorityControls weights={priorityWeights} onChange={setPriorityWeights} />
