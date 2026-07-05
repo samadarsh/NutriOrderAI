@@ -150,6 +150,8 @@ export interface CartInfo {
     quantity: number;
   }>;
   total?: number;
+  applied_coupon?: string;
+  discount_amount?: number;
   bill?: {
     total: number;
   };
@@ -225,9 +227,21 @@ export interface CoachNextMealResponse {
   results?: RecommendationResponse;
 }
 
+export interface SwiggyOAuthStartResponse {
+  code_challenge: string;
+  redirect_url: string;
+}
+
 
 // API Endpoints
 export const api = {
+  /**
+   * Starts the real Swiggy OAuth PKCE flow.
+   */
+  async startSwiggyOAuth(): Promise<SwiggyOAuthStartResponse> {
+    return apiFetch<SwiggyOAuthStartResponse>("/auth/swiggy/start");
+  },
+
   /**
    * Triggers a mock/demo login.
    */

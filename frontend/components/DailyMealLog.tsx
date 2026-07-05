@@ -8,7 +8,7 @@ interface DailyMealLogProps {
 export default function DailyMealLog({ entries }: DailyMealLogProps) {
   return (
     <div className="flex flex-col gap-2">
-      <span className="text-xs text-slate-500 font-bold uppercase tracking-wider text-[10px]">📋 Today's Meal Entries</span>
+      <span className="text-xs text-slate-500 font-bold uppercase tracking-wider text-[10px]">📋 Today&apos;s Meal Entries</span>
       {entries.length === 0 ? (
         <p className="text-xs text-slate-500 text-center py-4 bg-slate-950/20 border border-slate-900 rounded-xl">
           No meals logged today yet. Order meals or use manual entry below!

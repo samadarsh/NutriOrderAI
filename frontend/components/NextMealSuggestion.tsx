@@ -1,12 +1,12 @@
 import React, { useState } from "react";
-import { api, RecommendationMeal, CoachNextMealResponse } from "../lib/api";
+import { api, RecommendationMeal } from "../lib/api";
 
 interface NextMealSuggestionProps {
   onSelectMeal: (meal: RecommendationMeal) => void;
   activeSessionId: string;
 }
 
-export default function NextMealSuggestion({ onSelectMeal, activeSessionId }: NextMealSuggestionProps) {
+export default function NextMealSuggestion({ onSelectMeal }: NextMealSuggestionProps) {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [targetMet, setTargetMet] = useState(false);
