@@ -42,6 +42,7 @@ def run_suite():
         ("test_sprint3_centralized_order_event_audit", test_integration.test_sprint3_centralized_order_event_audit),
         ("test_sprint3_auth_status_endpoint", test_integration.test_sprint3_auth_status_endpoint),
         ("test_sprint4_coupons_schema_and_cod_filter", test_integration.test_sprint4_coupons_schema_and_cod_filter),
+        ("test_food_cart_restaurant_switch_requires_confirmation", test_integration.test_food_cart_restaurant_switch_requires_confirmation),
         ("test_sprint4_checkout_recovery_and_failing_closed", test_integration.test_sprint4_checkout_recovery_and_failing_closed),
         ("test_sprint4_availability_and_distance_filtering", test_integration.test_sprint4_availability_and_distance_filtering),
         ("test_timezone_aware_date_boundaries", test_coach.test_timezone_aware_date_boundaries),
@@ -54,6 +55,7 @@ def run_suite():
         ("test_address_selection_persistence", test_demo.test_address_selection_persistence),
         ("test_log_redaction_message", test_observability.test_log_redaction_message),
         ("test_log_redaction_extra", test_observability.test_log_redaction_extra),
+        ("test_mcp_client_logs_safe_metadata_without_raw_arguments", test_observability.test_mcp_client_logs_safe_metadata_without_raw_arguments),
         ("test_swiggy_oauth_start_sets_cookies_and_returns_url", test_oauth_pkce.test_swiggy_oauth_start_sets_cookies_and_returns_url),
         ("test_swiggy_oauth_callback_state_verification", test_oauth_pkce.test_swiggy_oauth_callback_state_verification),
         ("test_swiggy_oauth_callback_mock_mode_success", test_oauth_pkce.test_swiggy_oauth_callback_mock_mode_success),
@@ -67,7 +69,7 @@ def run_suite():
     passed = 0
     failed = 0
 
-    print("Running NutriOrder AI Unit & Integration Tests...\n" + "="*40)
+    print("Running BiteWise Unit & Integration Tests...\n" + "="*40)
     for name, func in tests:
         try:
             func()

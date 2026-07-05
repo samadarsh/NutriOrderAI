@@ -1,7 +1,9 @@
 import requests
 import json
+import time
+import uuid
 from typing import Any, Dict, List, Optional
-from agent.observability import log_info, log_error
+from agent.observability import log_info, log_error, log_warn, metrics_tracker
 from config.settings import get_settings
 
 class SwiggyMCPError(Exception):
@@ -24,6 +26,93 @@ class SwiggyFoodMCPClient:
         self.base_url = base_url or settings.swiggy_mcp_base_url
         self.token = token or settings.swiggy_token
 
+    def _summarize_arguments(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
+        """Log only non-sensitive argument shape, not raw IDs, queries, or coupon codes."""
+        summary: Dict[str, Any] = {
+            "arg_keys": sorted(arguments.keys()),
+        }
+        if "cartItems" in arguments and isinstance(arguments["cartItems"], list):
+            summary["cart_items_count"] = len(arguments["cartItems"])
+        if "items" in arguments and isinstance(arguments["items"], list):
+            summary["items_count"] = len(arguments["items"])
+        if "query" in arguments:
+            summary["query_length"] = len(str(arguments.get("query") or ""))
+        if "couponCode" in arguments:
+            summary["has_coupon_code"] = bool(arguments.get("couponCode"))
+        if "addressId" in arguments:
+            summary["address_scope"] = "provided"
+        if "restaurantId" in arguments:
+            summary["restaurant_scope"] = "provided"
+        return summary
+
+    def _extract_swiggy_meta(self, response_json: Dict[str, Any], envelope: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        """Extract Swiggy MCP metadata from JSON-RPC result or parsed envelope."""
+        meta_sources: List[Dict[str, Any]] = []
+        result = response_json.get("result")
+        if isinstance(result, dict):
+            result_meta = result.get("_meta")
+            if isinstance(result_meta, dict):
+                meta_sources.append(result_meta)
+        if isinstance(envelope, dict):
+            envelope_meta = envelope.get("_meta")
+            if isinstance(envelope_meta, dict):
+                meta_sources.append(envelope_meta)
+
+        combined: Dict[str, Any] = {}
+        for meta in meta_sources:
+            swiggy_meta = meta.get("swiggy") if isinstance(meta.get("swiggy"), dict) else {}
+            combined.update(swiggy_meta)
+            for key in ("sessionId", "session_id", "deprecation"):
+                if key in meta and key not in combined:
+                    combined[key] = meta[key]
+        return combined
+
+    def _log_deprecation_if_present(self, tool_name: str, request_id: str, swiggy_meta: Dict[str, Any]) -> None:
+        deprecation = swiggy_meta.get("deprecation")
+        if deprecation:
+            log_warn(
+                "Swiggy MCP response included deprecation metadata.",
+                extra={
+                    "event": "mcp_deprecation",
+                    "tool": tool_name,
+                    "mcp_request_id": request_id,
+                    "deprecation": deprecation,
+                },
+            )
+
+    def _record_tool_completion(
+        self,
+        tool_name: str,
+        request_id: str,
+        started_at: float,
+        success: bool,
+        status_code: Optional[int] = None,
+        error_category: Optional[str] = None,
+        swiggy_meta: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        duration_sec = time.perf_counter() - started_at
+        metrics_tracker.record_latency(f"mcp_tool.{tool_name}", duration_sec)
+        metrics_tracker.record_tool_call(success=success)
+
+        swiggy_meta = swiggy_meta or {}
+        session_id = swiggy_meta.get("sessionId") or swiggy_meta.get("session_id")
+        extra = {
+            "event": "mcp_tool_call",
+            "tool": tool_name,
+            "mcp_request_id": request_id,
+            "duration_ms": round(duration_sec * 1000, 2),
+            "status": "ok" if success else "failed",
+        }
+        if status_code is not None:
+            extra["http_status"] = status_code
+        if session_id:
+            extra["swiggy_session_id"] = session_id
+
+        if success:
+            log_info("MCP tool call completed.", extra=extra)
+        else:
+            log_error("MCP tool call failed.", error_category=error_category or "mcp_error", extra=extra)
+
     def call_tool(self, tool_name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Generic method to call a Swiggy MCP tool using standard JSON-RPC 2.0 tools/call."""
         if not self.token:
@@ -34,6 +123,9 @@ class SwiggyFoodMCPClient:
             "Content-Type": "application/json"
         }
 
+        request_id = f"mcp_{uuid.uuid4().hex}"
+        started_at = time.perf_counter()
+
         payload = {
             "jsonrpc": "2.0",
             "method": "tools/call",
@@ -41,18 +133,32 @@ class SwiggyFoodMCPClient:
                 "name": tool_name,
                 "arguments": arguments
             },
-            "id": 1
+            "id": request_id
         }
 
-        # Log arguments without printing sensitive authorization token
-        log_info(f"Initiating MCP JSON-RPC call to: {tool_name}", extra={"tool": tool_name, "arguments": arguments})
+        log_info(
+            "MCP tool call started.",
+            extra={
+                "event": "mcp_tool_call_started",
+                "tool": tool_name,
+                "mcp_request_id": request_id,
+                "argument_summary": self._summarize_arguments(arguments),
+            },
+        )
 
         try:
             response = requests.post(self.base_url, json=payload, headers=headers, timeout=15)
 
             # Detect 401 Unauthorized directly
             if response.status_code == 401:
-                log_error("OAuth token has expired or is invalid (HTTP 401).", error_category="unauthenticated")
+                self._record_tool_completion(
+                    tool_name,
+                    request_id,
+                    started_at,
+                    success=False,
+                    status_code=response.status_code,
+                    error_category="unauthenticated",
+                )
                 raise SwiggyAuthError("Your Swiggy login session has expired. Please re-authenticate.", status_code=401)
 
             response.raise_for_status()
@@ -67,8 +173,24 @@ class SwiggyFoodMCPClient:
 
                 # Check for standard MCP session authentication error codes (e.g. -32001 or unauthenticated msg)
                 if err_code in [-32001, -32002] or "unauthorized" in err_msg.lower() or "auth" in err_msg.lower():
+                    self._record_tool_completion(
+                        tool_name,
+                        request_id,
+                        started_at,
+                        success=False,
+                        status_code=response.status_code,
+                        error_category="unauthenticated",
+                    )
                     raise SwiggyAuthError(f"Authentication failed: {err_msg}", error_code=err_code)
 
+                self._record_tool_completion(
+                    tool_name,
+                    request_id,
+                    started_at,
+                    success=False,
+                    status_code=response.status_code,
+                    error_category="domain_failure",
+                )
                 raise SwiggyMCPError(f"Swiggy MCP error: {err_msg}", error_code=err_code)
 
             result = response_json.get("result", {})
@@ -83,9 +205,29 @@ class SwiggyFoodMCPClient:
             # Parse Swiggy standard envelope from the text block
             try:
                 parsed_res = json.loads(text_content)
+                swiggy_meta = self._extract_swiggy_meta(response_json, parsed_res)
+                self._log_deprecation_if_present(tool_name, request_id, swiggy_meta)
+                self._record_tool_completion(
+                    tool_name,
+                    request_id,
+                    started_at,
+                    success=True,
+                    status_code=response.status_code,
+                    swiggy_meta=swiggy_meta,
+                )
                 return parsed_res
             except json.JSONDecodeError:
                 # If response text is not JSON (raw text block fallback)
+                swiggy_meta = self._extract_swiggy_meta(response_json)
+                self._log_deprecation_if_present(tool_name, request_id, swiggy_meta)
+                self._record_tool_completion(
+                    tool_name,
+                    request_id,
+                    started_at,
+                    success=True,
+                    status_code=response.status_code,
+                    swiggy_meta=swiggy_meta,
+                )
                 return {
                     "success": True,
                     "data": {"text": text_content},
@@ -95,8 +237,32 @@ class SwiggyFoodMCPClient:
         except requests.exceptions.RequestException as e:
             # Check for sub-exception containing status code
             status = getattr(e.response, "status_code", None) if hasattr(e, "response") else None
+            error_category = "upstream_error"
             if status == 401:
+                error_category = "unauthenticated"
+                self._record_tool_completion(
+                    tool_name,
+                    request_id,
+                    started_at,
+                    success=False,
+                    status_code=status,
+                    error_category=error_category,
+                )
                 raise SwiggyAuthError("Your Swiggy login session has expired. Please re-authenticate.", status_code=401) from e
+            if status == 429:
+                error_category = "rate_limited"
+            elif status and 400 <= status < 500:
+                error_category = "domain_failure"
+            elif "timeout" in str(e).lower():
+                error_category = "upstream_timeout"
+            self._record_tool_completion(
+                tool_name,
+                request_id,
+                started_at,
+                success=False,
+                status_code=status,
+                error_category=error_category,
+            )
             raise SwiggyMCPError(f"HTTP request to Swiggy MCP failed: {str(e)}", status_code=status) from e
 
     def _unpack_and_normalize(self, envelope: Dict[str, Any]) -> Any:

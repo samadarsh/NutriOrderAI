@@ -974,6 +974,62 @@ def test_sprint4_coupons_schema_and_cod_filter():
     finally:
         db.close()
 
+def test_food_cart_restaurant_switch_requires_confirmation():
+    """Verify a restaurant-bound Food cart cannot be replaced without user confirmation."""
+    from fastapi.testclient import TestClient
+    from backend.main import app
+
+    with TestClient(app) as client:
+        login = client.post("/auth/demo-login")
+        assert login.status_code == 200
+        client.post("/demo/reset")
+
+        first = client.post("/orders/session/start")
+        assert first.status_code == 200
+        first_session_id = first.json()["session_id"]
+        assert client.post(
+            f"/orders/session/{first_session_id}/select-address",
+            params={"address_id": "addr_home"},
+        ).status_code == 200
+        assert client.post(
+            "/recommendations/search",
+            json={"session_id": first_session_id, "query": "chicken"},
+        ).status_code == 200
+        assert client.post(
+            f"/orders/session/{first_session_id}/select-item",
+            params={"restaurant_id": "rest_1", "item_id": "item_1"},
+        ).status_code == 200
+        first_cart = client.post(f"/orders/session/{first_session_id}/cart")
+        assert first_cart.status_code == 200
+        assert first_cart.json()["cart"]["restaurantId"] == "rest_1"
+
+        second = client.post("/orders/session/start")
+        assert second.status_code == 200
+        second_session_id = second.json()["session_id"]
+        assert client.post(
+            f"/orders/session/{second_session_id}/select-address",
+            params={"address_id": "addr_home"},
+        ).status_code == 200
+        assert client.post(
+            "/recommendations/search",
+            json={"session_id": second_session_id, "query": "egg"},
+        ).status_code == 200
+        assert client.post(
+            f"/orders/session/{second_session_id}/select-item",
+            params={"restaurant_id": "rest_2", "item_id": "item_3"},
+        ).status_code == 200
+
+        blocked = client.post(f"/orders/session/{second_session_id}/cart")
+        assert blocked.status_code == 409
+        assert "RESTAURANT_SWITCH_REQUIRED" in blocked.json()["detail"]
+
+        confirmed = client.post(
+            f"/orders/session/{second_session_id}/cart",
+            params={"allow_restaurant_switch": True},
+        )
+        assert confirmed.status_code == 200
+        assert confirmed.json()["cart"]["restaurantId"] == "rest_2"
+
 def test_sprint4_checkout_recovery_and_failing_closed():
     """Verify that place_order_safely only recovers on 5xx/timeouts, failing closed on 4xx/safety lock."""
     from agent.resilience import place_order_safely, is_ambiguous_failure

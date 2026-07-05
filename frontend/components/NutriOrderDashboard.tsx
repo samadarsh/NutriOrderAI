@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { api, BASE_URL, UserProfile, Address, RecommendationMeal, CartInfo, Coupon } from "../lib/api";
+import { api, ApiError, BASE_URL, UserProfile, Address, RecommendationMeal, CartInfo, Coupon } from "../lib/api";
 import OnboardingPanel from "../components/OnboardingPanel";
 import PriorityControls, { PriorityWeights } from "../components/PriorityControls";
 import RecommendationCard from "../components/RecommendationCard";
@@ -276,19 +276,14 @@ export default function NutriOrderDashboard() {
     setCheckoutConfirmed(false);
     setAppliedCoupon("");
     setApplicableCoupons([]);
-    try {
-      // 1. Post item selection
-      await api.selectItem(activeSessionId, meal.restaurant_id || "", meal.id);
 
-      // 2. Sync cart
-      await api.syncCart(activeSessionId);
-
-      // 3. Review cart
+    const prepareCartForSelectedMeal = async (allowRestaurantSwitch = false) => {
+      // Sync cart, then refresh the authoritative server-side cart before checkout.
+      await api.syncCart(activeSessionId, allowRestaurantSwitch);
       const cartInfo = await api.reviewCart(activeSessionId);
       setCartPreview(cartInfo.cart);
       setSessionStatus(cartInfo.status);
 
-      // Fetch coupons
       try {
         setCouponsLoading(true);
         const couponsRes = await api.fetchCoupons(activeSessionId);
@@ -298,8 +293,36 @@ export default function NutriOrderDashboard() {
       } finally {
         setCouponsLoading(false);
       }
+    };
+
+    try {
+      // 1. Post item selection
+      await api.selectItem(activeSessionId, meal.restaurant_id || "", meal.id);
+
+      await prepareCartForSelectedMeal(false);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
+      if (
+        err instanceof ApiError &&
+        err.status === 409 &&
+        msg.includes("RESTAURANT_SWITCH_REQUIRED")
+      ) {
+        const prompt = msg.replace("RESTAURANT_SWITCH_REQUIRED: ", "");
+        const confirmedSwitch = window.confirm(`${prompt}\n\nReplace the current cart and continue?`);
+        if (confirmedSwitch) {
+          try {
+            await prepareCartForSelectedMeal(true);
+            setAlertType("info");
+            setAlertMessage("Previous restaurant cart replaced after your confirmation.");
+            return;
+          } catch (switchErr) {
+            const switchMsg = switchErr instanceof Error ? switchErr.message : String(switchErr);
+            setAlertType("error");
+            setAlertMessage(`Failed to prepare cart: ${switchMsg}`);
+            return;
+          }
+        }
+      }
       setAlertType("error"); setAlertMessage(`Failed to prepare cart: ${msg}`);
     } finally {
       setCartLoading(false);
@@ -807,9 +830,9 @@ export default function NutriOrderDashboard() {
           </div>
 
           {activeTab === "coach" ? (
-            <main className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6 lg:gap-8 w-full">
+            <main className="grid grid-cols-1 xl:grid-cols-12 gap-4 sm:gap-6 xl:gap-8 w-full">
             {/* Left Columns: Address, Profile & Query */}
-            <div className="lg:col-span-4 flex flex-col gap-4 sm:gap-8">
+            <div className="xl:col-span-4 flex flex-col gap-4 sm:gap-8">
 
             {/* Dynamic Priorities Control */}
             <PriorityControls weights={priorityWeights} onChange={setPriorityWeights} />
@@ -1041,7 +1064,7 @@ export default function NutriOrderDashboard() {
           </div>
 
           {/* Middle Column: Recommendations & Checkout Cart */}
-          <div className="lg:col-span-4 flex flex-col gap-8">
+          <div className="xl:col-span-4 flex flex-col gap-8">
             {/* Step 4: Recommendations results list */}
             <section className="bg-slate-900/60 backdrop-blur-md border border-slate-800 rounded-xl p-5 shadow-lg flex-1 flex flex-col gap-4">
               <h3 className="text-xs font-bold uppercase tracking-wider text-emerald-400">4. AI Meal Recommendations</h3>
@@ -1217,7 +1240,7 @@ export default function NutriOrderDashboard() {
           </div>
 
           {/* Right Column: AI Nutrition Coach Dashboard */}
-          <div className="lg:col-span-4 flex flex-col gap-8">
+          <div className="xl:col-span-4 flex flex-col gap-8">
             <CoachDashboard
               ref={coachDashboardRef}
               activeSessionId={activeSessionId}

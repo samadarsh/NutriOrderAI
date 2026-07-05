@@ -184,7 +184,8 @@ async def sync_cart(
     session_id: str,
     user_id: str = Depends(get_current_user_id),
     db: Session = Depends(get_db),
-    _rate_limit = Depends(mutating_rate_limiter)
+    _rate_limit = Depends(mutating_rate_limiter),
+    allow_restaurant_switch: bool = Query(False, description="User confirmed that an existing cart from another restaurant may be replaced.")
 ) -> Dict[str, Any]:
     """
     Adds the selected menu item to the user's Swiggy cart, transitioning state to CART_UPDATED.
@@ -205,6 +206,32 @@ async def sync_cart(
         client = swiggy._get_initialized_client()
 
         address_id = session_record.address_id or "addr_home"
+        # Swiggy Food carts are restaurant-bound. Refresh first so we do not
+        # silently replace a cart the user or Swiggy app changed between turns.
+        existing_cart = client.get_food_cart(addressId=address_id)
+        existing_items = existing_cart.get("cartItems") or existing_cart.get("items") or []
+        existing_restaurant_id = existing_cart.get("restaurantId")
+        selected_restaurant_id = session_record.selected_restaurant_id
+        if (
+            existing_items
+            and existing_restaurant_id
+            and selected_restaurant_id
+            and str(existing_restaurant_id) != str(selected_restaurant_id)
+            and not allow_restaurant_switch
+        ):
+            session_record.cart_snapshot = existing_cart
+            session_record.total = existing_cart.get("bill", {}).get("total", 0) or existing_cart.get("total", 0) or 0
+            db.commit()
+            current_name = existing_cart.get("restaurantName") or "another restaurant"
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    "RESTAURANT_SWITCH_REQUIRED: Your current Swiggy cart has "
+                    f"{len(existing_items)} item(s) from {current_name}. Adding this meal "
+                    "will replace that cart. Please confirm before continuing."
+                ),
+            )
+
         # Update cart
         client.update_food_cart(
             addressId=address_id,
@@ -226,6 +253,8 @@ async def sync_cart(
             "cart": cart_info,
             "status": OrderStatus.CART_UPDATED.value
         }
+    except HTTPException:
+        raise
     except Exception as e:
         transition_session_status(db, session_record, OrderStatus.FAILED)
         raise HTTPException(status_code=500, detail=f"Cart sync failed: {str(e)}")

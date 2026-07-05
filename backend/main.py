@@ -22,8 +22,8 @@ from backend.pantry import routes as pantry_routes
 from backend.grocery import routes as grocery_routes
 
 app = FastAPI(
-    title="NutriOrder AI Production Backend",
-    description="Multi-user FastAPI production server with OAuth, memory persistence, and order state machine.",
+    title="BiteWise API",
+    description="BiteWise backend for NutriOrder AI, SmartPantry AI, OAuth, user memory, and safe Swiggy MCP execution.",
     version="1.0.0"
 )
 
@@ -108,7 +108,7 @@ async def health():
     """Health check route for container environments and status validation."""
     return {
         "status": "healthy",
-        "app": "NutriOrder AI Production Backend"
+        "app": "BiteWise API"
     }
 
 if __name__ == "__main__":

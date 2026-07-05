@@ -420,8 +420,9 @@ export const api = {
   /**
    * Syncs the selected item to the Swiggy cart.
    */
-  async syncCart(sessionId: string): Promise<CartResponse> {
-    return apiFetch<CartResponse>(`/orders/session/${sessionId}/cart`, {
+  async syncCart(sessionId: string, allowRestaurantSwitch = false): Promise<CartResponse> {
+    const switchParam = allowRestaurantSwitch ? "?allow_restaurant_switch=true" : "";
+    return apiFetch<CartResponse>(`/orders/session/${sessionId}/cart${switchParam}`, {
       method: "POST",
     });
   },
