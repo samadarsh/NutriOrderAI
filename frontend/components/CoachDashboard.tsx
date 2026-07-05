@@ -62,7 +62,7 @@ const CoachDashboard = forwardRef<CoachDashboardRef, CoachDashboardProps>(
       <div className="bg-slate-900/60 backdrop-blur-md border border-slate-800 rounded-xl p-5 shadow-lg flex flex-col gap-5 text-left h-full">
         <div className="flex justify-between items-center border-b border-slate-800/60 pb-3">
           <div>
-            <h3 className="text-sm font-bold uppercase tracking-wider text-indigo-400">🤖 AI Nutrition Coach</h3>
+            <h3 className="text-sm font-bold uppercase tracking-wider text-indigo-400">🤖 NutriOrder AI Coach</h3>
             <p className="text-[10px] text-slate-500 mt-0.5">Estimated macros & general wellness companion</p>
           </div>
           {loading && (

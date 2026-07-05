@@ -84,7 +84,7 @@ export default function HouseholdDashboard() {
     return (
       <div className="flex flex-col items-center justify-center py-16 text-white gap-3">
         <div className="h-8 w-8 animate-spin rounded-full border-4 border-slate-700 border-t-emerald-500"></div>
-        <p className="text-sm font-semibold text-slate-400">Loading Household Assistant...</p>
+        <p className="text-sm font-semibold text-slate-400">Loading SmartPantry AI...</p>
       </div>
     );
   }
@@ -105,10 +105,10 @@ export default function HouseholdDashboard() {
       <div className="flex flex-col gap-2 md:flex-row md:justify-between md:items-center text-left">
         <div>
           <h2 className="text-2xl font-black tracking-tight text-white flex items-center gap-2">
-            🏡 Household Assistant
+            🏡 SmartPantry AI
           </h2>
           <p className="text-xs text-slate-400 font-semibold mt-1">
-            Manage your shared family diet targets, track pantry stock, discover what to cook, and preview grocery carts.
+            Manage shared family diet targets, track pantry stock, discover what to cook, and preview grocery carts.
           </p>
         </div>
         {household && (

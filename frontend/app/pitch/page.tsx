@@ -175,8 +175,8 @@ export default function PitchPage() {
       <div className="sticky top-0 z-50 bg-[#0e1310]/90 backdrop-blur-md border-b border-white/8">
         <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2 text-sm font-bold text-white/70 hover:text-white transition">
-            <span className="flex h-7 w-7 items-center justify-center rounded bg-[#f4b544] text-xs font-black text-[#17211c]">N</span>
-            NutriOrder AI
+            <span className="flex h-7 w-7 items-center justify-center rounded bg-[#f4b544] text-xs font-black text-[#17211c]">B</span>
+            BiteWise
           </Link>
 
           <div className="flex items-center gap-1">
@@ -224,10 +224,10 @@ export default function PitchPage() {
             Product Walkthrough
           </div>
           <h1 className="text-4xl sm:text-5xl font-black max-w-2xl leading-tight">
-            See NutriOrder AI in action
+            See BiteWise in action
           </h1>
           <p className="mt-4 text-sm text-white/60 max-w-lg leading-relaxed">
-            A 5-step walkthrough showing how NutriOrder AI turns health goals and household context into smart meal and grocery decisions.
+            A 5-step walkthrough showing how NutriOrder AI handles personal meal ordering while SmartPantry AI handles household pantry and grocery intelligence.
           </p>
 
           {mode === "checking" ? (
@@ -282,8 +282,8 @@ export default function PitchPage() {
             <PitchStepCard
               stepNumber={1}
               totalSteps={TOTAL_STEPS}
-              title="Set Your Health Goals"
-              subtitle="NutriOrder AI starts from your fitness goal, daily calorie and protein targets, allergies, and dietary preferences. Every recommendation is personalized from this foundation."
+              title="NutriOrder AI: Set Your Health Goals"
+              subtitle="NutriOrder AI starts from your fitness goal, daily calorie and protein targets, allergies, and dietary preferences. Every meal recommendation is personalized from this foundation."
               onNext={() => scrollToStep(2)}
             >
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -318,7 +318,7 @@ export default function PitchPage() {
             <PitchStepCard
               stepNumber={2}
               totalSteps={TOTAL_STEPS}
-              title="Get Smart Meal Recommendations"
+              title="NutriOrder AI: Get Smart Meal Recommendations"
               subtitle="The AI queries Swiggy Food MCP for real restaurant availability, ranks options by nutrition fit, cost, delivery time, and taste — then explains why each meal was suggested."
               onPrev={() => scrollToStep(1)}
               onNext={() => scrollToStep(3)}
@@ -362,8 +362,8 @@ export default function PitchPage() {
             <PitchStepCard
               stepNumber={3}
               totalSteps={TOTAL_STEPS}
-              title="Your Pantry Knows What's Low"
-              subtitle="The Household Assistant continuously scans pantry stock against restock thresholds. Out-of-stock items are auto-added to the grocery list. Low-stock items get amber alerts."
+              title="SmartPantry AI: Know What's Low"
+              subtitle="SmartPantry AI continuously scans pantry stock against restock thresholds. Out-of-stock items are auto-added to the grocery list. Low-stock items get amber alerts."
               onPrev={() => scrollToStep(2)}
               onNext={() => scrollToStep(4)}
             >
@@ -416,7 +416,7 @@ export default function PitchPage() {
             <PitchStepCard
               stepNumber={4}
               totalSteps={TOTAL_STEPS}
-              title="Cook Something Tonight"
+              title="SmartPantry AI: Cook Something Tonight"
               subtitle="The 'What Can I Cook?' engine matches pantry stock against recipe templates, filters by household dietary constraints, and ranks by ingredient coverage."
               onPrev={() => scrollToStep(3)}
               onNext={() => scrollToStep(5)}
@@ -466,7 +466,7 @@ export default function PitchPage() {
             <PitchStepCard
               stepNumber={5}
               totalSteps={TOTAL_STEPS}
-              title="Preview Your Grocery Cart"
+              title="SmartPantry AI: Preview Your Grocery Cart"
               subtitle="Unpurchased grocery items are grouped by category with priority scoring. The Instamart preview shows estimated costs without placing any real order."
               onPrev={() => scrollToStep(4)}
               isLast
@@ -513,9 +513,9 @@ export default function PitchPage() {
               <div className="mb-4 inline-flex rounded-md border border-[#f4b544]/40 bg-[#f4b544]/14 px-3 py-1 text-xs font-semibold uppercase text-[#ffd98a]">
                 {isLive ? "Live Demo Complete" : "End of Preview"}
               </div>
-              <h2 className="text-3xl sm:text-4xl font-black">This is NutriOrder AI.</h2>
+              <h2 className="text-3xl sm:text-4xl font-black">This is BiteWise.</h2>
               <p className="mt-4 text-sm text-white/60 leading-relaxed">
-                Health-aware meal ordering. Smart pantry intelligence. Recipe suggestions that respect your family&apos;s dietary needs. Grocery carts ready for Instamart — without placing a single real order until you say so.
+                NutriOrder AI handles health-aware meal ordering. SmartPantry AI handles pantry intelligence, recipe suggestions, and grocery cart previews. Together, they make the food decisions around a person and a home feel coordinated.
               </p>
               <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-4">
                 <Link

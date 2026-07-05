@@ -32,7 +32,7 @@ const BANNER_MESSAGES: Record<DemoContext, { icon: string; message: string; acce
   },
   order_placed: {
     icon: "✅",
-    message: "Meal logged to your nutrition ledger. Switch to Household & Pantry tab to see pantry alerts and recipe intelligence.",
+    message: "Meal logged to your nutrition ledger. Switch to SmartPantry AI to see pantry alerts and recipe intelligence.",
     accent: "border-emerald-500/40 bg-emerald-500/8 text-emerald-300",
   },
   household_empty: {
@@ -42,7 +42,7 @@ const BANNER_MESSAGES: Record<DemoContext, { icon: string; message: string; acce
   },
   household_populated: {
     icon: "🏡",
-    message: "Check low-stock alerts at the top, explore recipe suggestions, then preview the grouped grocery cart.",
+    message: "SmartPantry AI is ready. Check low-stock alerts, explore recipe suggestions, then preview the grouped grocery cart.",
     accent: "border-emerald-500/40 bg-emerald-500/8 text-emerald-300",
   },
 };

@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "NutriOrder AI | Food Intelligence Platform",
-  description: "AI health coach and household food assistant powered by Swiggy MCP. Personalized meal ordering, pantry intelligence, recipe suggestions, and grocery cart preview.",
+  title: "BiteWise | Food Intelligence Platform",
+  description: "A food intelligence platform combining NutriOrder AI for health-aware food ordering and SmartPantry AI for household pantry and grocery planning.",
 };
 
 export default function RootLayout({

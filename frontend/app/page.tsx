@@ -19,15 +19,15 @@ const householdHighlights = [
 const platformSteps = [
   {
     title: "Understand the context",
-    body: "NutriOrder AI starts from the user's goal, address, preferences, budget, and daily nutrition targets."
+    body: "BiteWise separates personal nutrition context from shared household context, then routes the user to the right product."
   },
   {
-    title: "Search real availability",
-    body: "The assistant queries Swiggy MCP tools for food now, and the same product shell can expand to Instamart groceries."
+    title: "Pick the right surface",
+    body: "NutriOrder AI handles ready-to-eat meals. SmartPantry AI handles pantry, recipe, and grocery planning."
   },
   {
     title: "Rank and explain",
-    body: "Recommendations show estimated macros, confidence, tradeoffs, coupons, distance, and delivery timing before checkout."
+    body: "Each product explains its reasoning, from meal macro fit to pantry gaps, recipe readiness, and grocery priority."
   },
   {
     title: "Confirm before action",
@@ -141,14 +141,17 @@ export default function LandingPage() {
         }}
       >
         <header className="relative z-10 mx-auto flex h-20 w-full max-w-7xl items-center justify-between px-5 sm:px-8">
-          <Link href="/" className="flex items-center gap-3" aria-label="NutriOrder AI home">
+          <Link href="/" className="flex items-center gap-3" aria-label="BiteWise home">
             <span className="flex h-9 w-9 items-center justify-center rounded-md bg-[#f4b544] text-sm font-black text-[#17211c]">
-              N
+              B
             </span>
-            <span className="text-base font-bold">NutriOrder AI</span>
+            <div className="leading-tight">
+              <span className="block text-base font-bold">BiteWise</span>
+              <span className="block text-[10px] font-semibold uppercase tracking-wider text-white/45">Food decisions, made smarter</span>
+            </div>
           </Link>
           <nav className="hidden items-center gap-7 text-sm text-white/78 md:flex">
-            <a href="#modes" className="hover:text-white">Modes</a>
+            <a href="#products" className="hover:text-white">Products</a>
             <a href="#how-it-works" className="hover:text-white">How It Works</a>
             <a href="#safety" className="hover:text-white">Safety</a>
             <Link href="/pitch" className="hover:text-white">Demo Walkthrough</Link>
@@ -164,16 +167,16 @@ export default function LandingPage() {
         <div className="relative z-10 mx-auto flex min-h-[calc(86svh-80px)] max-w-7xl items-center px-5 pb-14 pt-8 sm:px-8">
           <div className="max-w-3xl">
             <div className="mb-5 inline-flex rounded-md border border-[#f4b544]/40 bg-[#f4b544]/14 px-3 py-1 text-xs font-semibold uppercase text-[#ffd98a]">
-              Built for Swiggy MCP execution
+              NutriOrder AI and SmartPantry AI
             </div>
             <h1 className="max-w-3xl text-5xl font-black leading-[1.02] sm:text-6xl lg:text-7xl">
-              NutriOrder AI
+              BiteWise
             </h1>
             <p className="mt-6 max-w-2xl text-xl leading-8 text-white/84">
-              A food intelligence platform that turns health goals, household context, and real-time Swiggy availability into better meals, groceries, and orders.
+              One food intelligence platform with two focused products: NutriOrder AI for health-aware meal ordering, and SmartPantry AI for household pantry and grocery planning.
             </p>
 
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+            <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
               {sessionLoading ? (
                 <div className="h-12 w-48 rounded-md bg-white/10 animate-pulse" />
               ) : userProfile ? (
@@ -233,10 +236,10 @@ export default function LandingPage() {
               </p>
             )}
 
-            <dl className="mt-10 grid max-w-2xl grid-cols-4 gap-3 text-white">
+            <dl className="mt-10 grid max-w-2xl grid-cols-2 sm:grid-cols-4 gap-3 text-white">
               <div className="border-l border-white/20 pl-4">
                 <dt className="text-2xl font-black">2</dt>
-                <dd className="mt-1 text-xs text-white/68">Product modes</dd>
+                <dd className="mt-1 text-xs text-white/68">Focused products</dd>
               </div>
               <div className="border-l border-white/20 pl-4">
                 <dt className="text-2xl font-black">52+</dt>
@@ -255,17 +258,17 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <section id="modes" className="mx-auto grid max-w-7xl gap-5 px-5 py-14 sm:px-8 lg:grid-cols-2">
+      <section id="products" className="mx-auto grid max-w-7xl gap-5 px-5 py-14 sm:px-8 lg:grid-cols-2">
         <article className="rounded-lg border border-[#d6cdbd] bg-white p-6 shadow-sm">
           <div className="mb-5 flex items-center justify-between gap-4">
-            <p className="text-xs font-black uppercase text-[#2f6f5e]">Live product surface</p>
+            <p className="text-xs font-black uppercase text-[#2f6f5e]">Personal nutrition ordering</p>
             <span className="rounded-md bg-[#2f6f5e]/10 px-3 py-1 text-xs font-bold text-[#2f6f5e]">
               Food MCP
             </span>
           </div>
-          <h2 className="text-3xl font-black">Personal Nutrition Coach</h2>
+          <h2 className="text-3xl font-black">NutriOrder AI</h2>
           <p className="mt-3 max-w-xl text-sm leading-6 text-[#546158]">
-            The current NutriOrder AI experience helps one user choose high-fit meals, review cart details, apply coupons, place controlled orders, and log nutrition automatically.
+            The meal-ordering product helps one user choose high-fit meals, review cart details, apply coupons, place controlled orders, and log nutrition automatically.
           </p>
           <ul className="mt-6 space-y-3">
             {personalHighlights.map((item) => (
@@ -279,14 +282,14 @@ export default function LandingPage() {
 
         <article className="rounded-lg border border-[#d6cdbd] bg-[#fffaf0] p-6 shadow-sm">
           <div className="mb-5 flex items-center justify-between gap-4">
-            <p className="text-xs font-black uppercase text-[#b24f3d]">Next platform module</p>
+            <p className="text-xs font-black uppercase text-[#b24f3d]">Household pantry intelligence</p>
             <span className="rounded-md bg-[#b24f3d]/10 px-3 py-1 text-xs font-bold text-[#b24f3d]">
               Instamart MCP
             </span>
           </div>
-          <h2 className="text-3xl font-black">Smart Household Assistant</h2>
+          <h2 className="text-3xl font-black">SmartPantry AI</h2>
           <p className="mt-3 max-w-xl text-sm leading-6 text-[#5d5b51]">
-            The household mode expands NutriOrder from individual meals to the home food lifecycle: pantry awareness, recipe planning, missing items, family requests, and grocery execution.
+            The household product manages the home food lifecycle: pantry awareness, recipe planning, missing items, family requests, and grocery cart preview.
           </p>
           <ul className="mt-6 space-y-3">
             {householdHighlights.map((item) => (
@@ -303,9 +306,9 @@ export default function LandingPage() {
         <div className="mx-auto max-w-7xl">
           <div className="max-w-2xl">
             <p className="text-xs font-black uppercase text-[#f4b544]">Operating model</p>
-            <h2 className="mt-3 text-4xl font-black">One assistant, two food decisions</h2>
+            <h2 className="mt-3 text-4xl font-black">One platform, two focused food products</h2>
             <p className="mt-4 text-sm leading-6 text-white/68">
-              The landing page should not trap us in a diet-only story. It should describe a platform that can decide whether the user needs a ready meal, groceries, or a planned household basket.
+              BiteWise keeps the experiences separate enough to feel clear, while sharing the same identity, memory, safety patterns, and Swiggy MCP execution layer.
             </p>
           </div>
 
@@ -340,6 +343,12 @@ export default function LandingPage() {
           ))}
         </div>
       </section>
+
+      {/* Footer */}
+      <footer className="bg-[#17211c] text-white/40 text-xs text-center py-8 px-4 border-t border-white/8">
+        <p className="font-semibold">BiteWise — NutriOrder AI + SmartPantry AI</p>
+        <p className="mt-1">Built for the Swiggy MCP Builders Challenge</p>
+      </footer>
     </main>
   );
 }

@@ -139,7 +139,7 @@ export default function NutriOrderDashboard() {
       window.location.href = res.redirect_url;
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      alert(`Swiggy OAuth start failed: ${msg}`);
+      setAlertType("error"); setAlertMessage(`Swiggy OAuth start failed: ${msg}`);
     } finally {
       setAuthLoading(false);
     }
@@ -156,7 +156,7 @@ export default function NutriOrderDashboard() {
       setIsAuthenticated(true);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      alert(`Login failed: ${msg}`);
+      setAlertType("error"); setAlertMessage(`Login failed: ${msg}`);
     } finally {
       setAuthLoading(false);
     }
@@ -220,7 +220,7 @@ export default function NutriOrderDashboard() {
       setCheckoutConfirmed(false);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      alert(`Failed to start session: ${msg}`);
+      setAlertType("error"); setAlertMessage(`Failed to start session: ${msg}`);
     }
   };
 
@@ -228,7 +228,7 @@ export default function NutriOrderDashboard() {
   const handleQuerySearch = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!activeSessionId) {
-      alert("Please select a delivery address to start an order session first!");
+      setAlertType("warning"); setAlertMessage("Please select a delivery address to start an order session first!");
       return;
     }
     setSearchLoading(true);
@@ -263,7 +263,7 @@ export default function NutriOrderDashboard() {
       setCartPreview(null);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      alert(`Search failed: ${msg}`);
+      setAlertType("error"); setAlertMessage(`Search failed: ${msg}`);
     } finally {
       setSearchLoading(false);
     }
@@ -300,7 +300,7 @@ export default function NutriOrderDashboard() {
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      alert(`Failed to prepare cart: ${msg}`);
+      setAlertType("error"); setAlertMessage(`Failed to prepare cart: ${msg}`);
     } finally {
       setCartLoading(false);
     }
@@ -312,10 +312,10 @@ export default function NutriOrderDashboard() {
       const res = await api.applyCoupon(activeSessionId, couponCode);
       setCartPreview(res.cart);
       setAppliedCoupon(couponCode);
-      alert(`Coupon ${couponCode} applied successfully!`);
+      setAlertType("success"); setAlertMessage(`Coupon ${couponCode} applied successfully!`);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      alert(`Failed to apply coupon: ${msg}`);
+      setAlertType("error"); setAlertMessage(`Failed to apply coupon: ${msg}`);
     } finally {
       setCartLoading(false);
     }
@@ -330,7 +330,7 @@ export default function NutriOrderDashboard() {
         setSessionStatus(res.status);
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
-        alert(`Confirmation failed: ${msg}`);
+        setAlertType("error"); setAlertMessage(`Confirmation failed: ${msg}`);
         setCheckoutConfirmed(false);
       }
     }
@@ -426,7 +426,7 @@ export default function NutriOrderDashboard() {
       setTrackingIntervalId(interval);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      alert(`Checkout failed: ${msg}`);
+      setAlertType("error"); setAlertMessage(`Checkout failed: ${msg}`);
     } finally {
       setOrderPlacing(false);
     }
@@ -441,10 +441,10 @@ export default function NutriOrderDashboard() {
       const prof = await api.getProfile();
       loadProfileFields(prof);
       setShowFeedbackModal(false);
-      alert("Feedback saved! NutriOrder AI has updated your personalization rules based on your inputs.");
+      setAlertType("success"); setAlertMessage("Feedback saved! Your personalization rules have been updated.");
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      alert(`Failed to save feedback: ${msg}`);
+      setAlertType("error"); setAlertMessage(`Failed to save feedback: ${msg}`);
     } finally {
       setFeedbackLoading(false);
     }
@@ -458,10 +458,10 @@ export default function NutriOrderDashboard() {
       const prof = await api.getProfile();
       loadProfileFields(prof);
       setEditingProfile(false);
-      alert("Biometric targets calculated and synchronized successfully.");
+      setAlertType("success"); setAlertMessage("Biometric targets calculated and synchronized successfully.");
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      alert(`Failed to update biometric profile: ${msg}`);
+      setAlertType("error"); setAlertMessage(`Failed to update biometric profile: ${msg}`);
     } finally {
       setAuthLoading(false);
     }
@@ -505,7 +505,7 @@ export default function NutriOrderDashboard() {
       setCartPreview(null);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      alert(`Constraint relaxation search failed: ${msg}`);
+      setAlertType("error"); setAlertMessage(`Constraint relaxation search failed: ${msg}`);
     } finally {
       setSearchLoading(false);
     }
@@ -564,10 +564,15 @@ export default function NutriOrderDashboard() {
       <header className="border-b border-slate-900 bg-slate-950/80 backdrop-blur-md sticky top-0 z-50">
         <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2 cursor-pointer" onClick={handleReset}>
-            <span className="text-2xl">🥗</span>
-            <span className="text-xl font-bold bg-gradient-to-r from-emerald-400 to-lime-300 bg-clip-text text-transparent">
-              NutriOrder AI
-            </span>
+            <span className="flex h-8 w-8 items-center justify-center rounded-md bg-[#f4b544] text-sm font-black text-slate-950">B</span>
+            <div className="leading-tight">
+              <span className="block text-lg font-bold bg-gradient-to-r from-emerald-400 to-lime-300 bg-clip-text text-transparent">
+                BiteWise
+              </span>
+              <span className="block text-[9px] uppercase tracking-wider text-slate-500 font-bold">
+                NutriOrder AI and SmartPantry AI
+              </span>
+            </div>
             <span className="text-[10px] bg-emerald-500/10 text-emerald-400 font-semibold px-2 py-0.5 rounded border border-emerald-500/20">
               Demo Staging
             </span>
@@ -604,10 +609,10 @@ export default function NutriOrderDashboard() {
               🥗
             </div>
             <h2 className="text-3xl font-extrabold tracking-tight text-white">
-              Welcome to <span className="bg-gradient-to-r from-emerald-400 to-lime-300 bg-clip-text text-transparent">NutriOrder AI</span>
+              Welcome to <span className="bg-gradient-to-r from-emerald-400 to-lime-300 bg-clip-text text-transparent">BiteWise</span>
             </h2>
             <p className="text-slate-400 text-sm leading-relaxed">
-              We leverage Swiggy&apos;s MCP Staging Lab to scan menus, filter target macros (protein & calories), and place secure, compliant food orders aligned with your goals.
+              Choose NutriOrder AI for health-aware meal ordering or SmartPantry AI for pantry, recipe, and grocery planning.
             </p>
 
             <button
@@ -770,27 +775,31 @@ export default function NutriOrderDashboard() {
             />
           )}
 
-          {/* Tab Switcher Navigation */}
-          <div className="flex gap-4 border-b border-slate-900 pb-2">
+          {/* Product Switcher Navigation */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 border-b border-slate-900 pb-4">
             <button
               onClick={() => setActiveTab("coach")}
-              className={`pb-2 text-sm font-bold border-b-2 transition ${
+              className={`rounded-xl border p-4 text-left transition ${
                 activeTab === "coach"
-                  ? "border-emerald-500 text-emerald-400"
-                  : "border-transparent text-slate-400 hover:text-slate-200"
+                  ? "border-emerald-500 bg-emerald-500/10 shadow-lg shadow-emerald-500/5"
+                  : "border-slate-800 bg-slate-900/40 hover:border-slate-700"
               }`}
             >
-              🥗 Nutrition Coach
+              <span className="block text-xs font-black uppercase tracking-wider text-emerald-400">NutriOrder AI</span>
+              <span className="mt-1 block text-sm font-bold text-slate-100">Health-aware Swiggy food ordering</span>
+              <span className="mt-1 block text-xs text-slate-500">Macros, meal ranking, coupons, safe checkout, nutrition logging.</span>
             </button>
             <button
               onClick={() => setActiveTab("household")}
-              className={`pb-2 text-sm font-bold border-b-2 transition ${
+              className={`rounded-xl border p-4 text-left transition ${
                 activeTab === "household"
-                  ? "border-emerald-500 text-emerald-400"
-                  : "border-transparent text-slate-400 hover:text-slate-200"
+                  ? "border-amber-500 bg-amber-500/10 shadow-lg shadow-amber-500/5"
+                  : "border-slate-800 bg-slate-900/40 hover:border-slate-700"
               }`}
             >
-              🏡 Household & Pantry
+              <span className="block text-xs font-black uppercase tracking-wider text-amber-400">SmartPantry AI</span>
+              <span className="mt-1 block text-sm font-bold text-slate-100">Household pantry and grocery intelligence</span>
+              <span className="mt-1 block text-xs text-slate-500">Low-stock alerts, recipe matching, grocery grouping, cart preview.</span>
             </button>
           </div>
 
