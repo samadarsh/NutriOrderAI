@@ -52,6 +52,7 @@ export default function LandingPage() {
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [swiggyStatus, setSwiggyStatus] = useState<SwiggyConfigStatus | null>(null);
   const [sessionLoading, setSessionLoading] = useState(true);
+  const [backendOffline, setBackendOffline] = useState(false);
 
   useEffect(() => {
     // Query session & staging status
@@ -72,13 +73,21 @@ export default function LandingPage() {
         ]);
         setUserProfile(prof);
         setSwiggyStatus(status);
+        setBackendOffline(false);
       } catch {
         // Fallback status read on unauthenticated profile error
         try {
           const status = await api.getSwiggyStatus();
           setSwiggyStatus(status);
-        } catch {
-          // ignore
+          setBackendOffline(false);
+        } catch (statusErr) {
+          // If both fail, verify if it was a network error (e.g. status code missing or status is 0)
+          const isNetworkError = !(statusErr && typeof statusErr === "object" && "status" in statusErr);
+          if (isNetworkError) {
+            setBackendOffline(true);
+          } else {
+            setBackendOffline(false);
+          }
         }
       } finally {
         setSessionLoading(false);
@@ -88,6 +97,7 @@ export default function LandingPage() {
   }, []);
 
   const startSwiggyLogin = async () => {
+    if (backendOffline) return;
     setAuthLoading(true);
     setMessage("");
     try {
@@ -102,6 +112,7 @@ export default function LandingPage() {
   };
 
   const startDemo = async () => {
+    if (backendOffline) return;
     setDemoLoading(true);
     setMessage("");
     try {
@@ -115,7 +126,7 @@ export default function LandingPage() {
     }
   };
 
-  const showDemoCTA = swiggyStatus?.use_mock_mcp !== false;
+  const showDemoCTA = swiggyStatus?.use_mock_mcp !== false || backendOffline;
 
   return (
     <main className="min-h-screen bg-[#f7f4ec] text-[#17211c]">
@@ -173,7 +184,7 @@ export default function LandingPage() {
                 <>
                   <button
                     onClick={startSwiggyLogin}
-                    disabled={authLoading}
+                    disabled={authLoading || backendOffline}
                     className="rounded-md bg-[#f4b544] px-6 py-3.5 text-sm font-black text-[#17211c] shadow-[0_18px_50px_rgba(244,181,68,0.28)] transition hover:bg-[#ffd071] disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {authLoading ? "Starting Swiggy Login" : "Continue with Swiggy"}
@@ -181,7 +192,7 @@ export default function LandingPage() {
                   {showDemoCTA && (
                     <button
                       onClick={startDemo}
-                      disabled={demoLoading}
+                      disabled={demoLoading || backendOffline}
                       className="rounded-md border border-white/28 bg-white/8 px-6 py-3.5 text-sm font-bold text-white transition hover:border-white/70 hover:bg-white/14 disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       {demoLoading ? "Opening Sandbox" : "Try Sandbox Demo"}
@@ -191,7 +202,13 @@ export default function LandingPage() {
               )}
             </div>
 
-            {message && (
+            {backendOffline && (
+              <p className="mt-5 max-w-xl rounded-md border border-[#df6b57]/50 bg-[#df6b57]/16 px-4 py-3 text-sm text-[#ffd7cf]">
+                Backend is offline. Start FastAPI on port 8000 to use login and demo mode.
+              </p>
+            )}
+
+            {message && !backendOffline && (
               <p className="mt-5 max-w-xl rounded-md border border-[#df6b57]/50 bg-[#df6b57]/16 px-4 py-3 text-sm text-[#ffd7cf]">
                 {message}
               </p>
