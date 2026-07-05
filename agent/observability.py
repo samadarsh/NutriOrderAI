@@ -6,7 +6,7 @@ from collections import defaultdict
 from typing import Any, Dict
 
 # Config structured logger
-logger = logging.getLogger("NutriOrderAI")
+logger = logging.getLogger("BiteWise")
 logger.setLevel(logging.INFO)
 
 class JSONFormatter(logging.Formatter):

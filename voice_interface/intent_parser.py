@@ -13,9 +13,9 @@ FOOD_ORDER_INTENT_SCHEMA = {
 }
 
 SYSTEM_PROMPT = """
-You extract structured food-order intent for NutriOrderAI.
+You extract structured food-order intent for NutriOrder AI.
 
-NutriOrderAI recommends meals and prepares a cart only after the user confirms.
+NutriOrder AI recommends meals and prepares a cart only after the user confirms.
 Your job is to convert a voice transcript into structured constraints for the
 recommendation pipeline. Return JSON only. Do not include markdown or commentary.
 
@@ -31,7 +31,7 @@ Field rules:
 - preferences is an array of short strings for food items, cuisine, dietary
   preferences, spice preferences, and exclusions. Use [] when absent.
 - location is the spoken delivery location when present. If absent, use
-  "user_location" so NutriOrderAI can use the saved/default address.
+  "user_location" so NutriOrder AI can use the saved/default address.
 - Do not return any keys beyond the six keys listed above.
 
 Example transcript:
@@ -62,7 +62,7 @@ def parse_food_order_intent(
     model: str | None = None,
     api_key: str | None = None,
 ) -> dict[str, Any]:
-    """Convert a voice transcript into the exact NutriOrderAI voice JSON contract.
+    """Convert a voice transcript into the exact NutriOrder AI voice JSON contract.
 
     The Groq call is retried once when the returned content is not valid JSON or
     does not match the expected schema. A second failure asks the caller to get a

@@ -131,7 +131,7 @@ def _run_ffmpeg(args: list[str]) -> None:
 
 
 def build_voice_order_payload(transcription: dict[str, Any] | str, intent: dict[str, Any]) -> dict[str, Any]:
-    """Combine transcript and intent output for downstream NutriOrderAI calls."""
+    """Combine transcript and intent output for downstream NutriOrder AI calls."""
     transcript_text = transcription if isinstance(transcription, str) else transcription.get("text", "")
     language = None if isinstance(transcription, str) else transcription.get("language")
 
