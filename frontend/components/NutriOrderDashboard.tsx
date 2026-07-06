@@ -690,7 +690,7 @@ export default function NutriOrderDashboard() {
         </main>
       ) : placedOrderId ? (
         // Tracking View
-        <main className="flex-1 max-w-4xl w-full mx-auto px-3 sm:px-4 py-4 sm:py-8">
+        <main className="flex-1 max-w-4xl w-full mx-auto px-3 sm:px-4 pt-4 sm:pt-8 pb-28 sm:pb-8">
           <div className="bg-slate-900/60 backdrop-blur-md border border-slate-800 rounded-2xl p-4 sm:p-8 shadow-xl flex flex-col gap-5 sm:gap-8">
             <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3 border-b border-slate-800 pb-4 sm:pb-6">
               <div>
@@ -707,15 +707,16 @@ export default function NutriOrderDashboard() {
             </div>
 
             {/* Stepper tracking progress bar */}
-            <div className="relative flex justify-between items-start w-full my-2 sm:my-4 px-2 sm:px-8 overflow-visible">
+            <div className="relative w-full my-2 sm:my-4 px-1 sm:px-8 overflow-visible">
               {/* Background track */}
-              <div className="absolute left-2 right-2 sm:left-8 sm:right-8 top-4 h-1 bg-slate-800 rounded-full" />
+              <div className="absolute left-[12.5%] right-[12.5%] top-4 sm:top-5 h-1 bg-slate-800 rounded-full" />
               {/* Active progress */}
               <div
-                className="absolute left-2 sm:left-8 top-4 h-1 bg-emerald-500 rounded-full transition-all duration-1000"
-                style={{ width: `calc(${(trackingStep / 3) * 100}% * (1 - 16px / 100%))` }}
+                className="absolute left-[12.5%] top-4 sm:top-5 h-1 bg-emerald-500 rounded-full transition-all duration-1000"
+                style={{ width: `${Math.min(75, Math.max(0, (trackingStep / 3) * 75))}%` }}
               />
 
+              <div className="relative z-10 grid grid-cols-4 gap-0">
               {[
                 { label: "Placed", desc: "Sent to Staging MCP" },
                 { label: "Accepted", desc: "Restaurant Confirmed" },
@@ -725,8 +726,8 @@ export default function NutriOrderDashboard() {
                 const active = trackingStep >= idx;
                 const isCurrent = trackingStep === idx && trackingStep < 3;
                 return (
-                  <div key={idx} className="flex flex-col items-center text-center relative z-10" style={{ flex: "1 1 0%" }}>
-                    <div className={`h-7 w-7 sm:h-9 sm:w-9 rounded-full flex items-center justify-center font-bold text-[10px] sm:text-xs border-2 transition-all duration-500 ${
+                  <div key={idx} className="flex min-w-0 flex-col items-center text-center">
+                    <div className={`relative z-10 h-8 w-8 sm:h-10 sm:w-10 rounded-full flex items-center justify-center font-bold text-[10px] sm:text-xs border-2 transition-all duration-500 ${
                       active
                         ? "bg-emerald-500 border-emerald-400 text-slate-950 shadow-lg shadow-emerald-500/30"
                         : "bg-slate-900 border-slate-700 text-slate-600"
@@ -741,11 +742,12 @@ export default function NutriOrderDashboard() {
                         idx + 1
                       )}
                     </div>
-                    <p className={`text-[10px] sm:text-xs font-semibold mt-1.5 sm:mt-2 ${active ? "text-slate-200" : "text-slate-600"}`}>{step.label}</p>
+                    <p className={`max-w-full truncate text-[10px] sm:text-xs font-semibold mt-2 sm:mt-3 ${active ? "text-slate-200" : "text-slate-600"}`}>{step.label}</p>
                     <p className="text-[8px] sm:text-[10px] text-slate-500 max-w-[70px] sm:max-w-[100px] mt-0.5 leading-tight hidden sm:block">{step.desc}</p>
                   </div>
                 );
               })}
+              </div>
             </div>
 
             {/* Meal summary details */}
@@ -777,7 +779,7 @@ export default function NutriOrderDashboard() {
 
             <button
               onClick={handleReset}
-              className="mt-2 sm:mt-6 self-center bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold px-5 sm:px-6 py-2.5 rounded-lg text-xs sm:text-sm transition-all"
+              className="mt-2 sm:mt-6 mb-[env(safe-area-inset-bottom)] self-center bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold px-5 sm:px-6 py-2.5 rounded-lg text-xs sm:text-sm transition-all"
             >
               Order Something Else
             </button>

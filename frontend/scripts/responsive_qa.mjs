@@ -6,8 +6,10 @@ const require = createRequire(import.meta.url);
 const { chromium } = require(process.env.PLAYWRIGHT_PACKAGE || "playwright");
 
 const baseUrl = process.env.QA_BASE_URL || "http://127.0.0.1:3010";
+const apiUrl = process.env.QA_API_URL || "http://127.0.0.1:8010";
 const outDir = process.env.QA_OUT_DIR || path.resolve(process.cwd(), "../qa/responsive");
 const chromePath = process.env.CHROME_PATH || "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
+const includeTracking = process.env.QA_INCLUDE_TRACKING !== "false";
 
 const viewports = [
   { name: "mobile", width: 390, height: 844 },
@@ -103,6 +105,38 @@ async function authenticateDemo(page) {
   }
 }
 
+async function resetAndSeedDemo(page) {
+  await page.evaluate(async (targetApiUrl) => {
+    await fetch(`${targetApiUrl}/demo/reset`, {
+      method: "POST",
+      credentials: "include",
+    });
+    await fetch(`${targetApiUrl}/demo/seed`, {
+      method: "POST",
+      credentials: "include",
+    });
+  }, apiUrl);
+}
+
+async function prepareTrackingView(page) {
+  await page.goto(`${baseUrl}/app`, { waitUntil: "networkidle" });
+  await resetAndSeedDemo(page);
+  await page.goto(`${baseUrl}/app`, { waitUntil: "networkidle" });
+
+  await page.getByText("Home", { exact: true }).first().click();
+  await page.getByPlaceholder(/high protein/i).fill("high protein chicken under Rs 350");
+  await page.getByRole("button", { name: /find recommended meal/i }).click();
+
+  await page.getByText(/Match Score/i).first().waitFor({ timeout: 20000 });
+  await page.getByText(/Grilled Chicken Rice Bowl|Peri Peri Chicken Salad|High Protein Soya Salad/i).first().click();
+
+  await page.getByText(/Staging Cart Review/i).waitFor({ timeout: 20000 });
+  await page.getByLabel(/I confirm these details are correct/i).click();
+  await page.getByRole("button", { name: /place cod order on swiggy/i }).click();
+  await page.getByText(/Tracking/i).waitFor({ timeout: 20000 });
+  await page.waitForTimeout(800);
+}
+
 await fs.mkdir(outDir, { recursive: true });
 
 const browser = await chromium.launch({
@@ -133,6 +167,20 @@ try {
       results.push({
         viewport: viewport.name,
         route: route.name,
+        filePath,
+        ...metrics,
+      });
+    }
+
+    if (includeTracking) {
+      await prepareTrackingView(page);
+      const metrics = await page.evaluate(collectLayoutMetrics);
+      const fileName = `${viewport.name}-app-tracking.png`;
+      const filePath = path.join(outDir, fileName);
+      await page.screenshot({ path: filePath, fullPage: true });
+      results.push({
+        viewport: viewport.name,
+        route: "app-tracking",
         filePath,
         ...metrics,
       });
