@@ -595,9 +595,19 @@ export default function LandingPage() {
       </section>
 
       {/* Footer */}
-      <footer className="bg-[#17211c] text-white/35 text-xs text-center py-10 px-4 border-t border-white/6">
-        <p className="font-semibold text-white/50">BiteWise — NutriOrder AI + SmartPantry AI</p>
-        <p className="mt-1.5">Built for the Swiggy MCP Builders Challenge</p>
+      <footer className="bg-[#17211c] text-white/35 text-xs text-center py-10 px-5 border-t border-white/6">
+        <div className="mx-auto max-w-7xl flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-2">
+            <span className="flex h-6 w-6 items-center justify-center rounded-md bg-[#f4b544] text-[10px] font-black text-[#17211c]">B</span>
+            <span className="font-semibold text-white/50">BiteWise</span>
+          </div>
+          <div className="flex items-center gap-5">
+            <Link href="/pitch" className="text-white/40 hover:text-white/70 transition-colors">Demo</Link>
+            <Link href="/app" className="text-white/40 hover:text-white/70 transition-colors">Dashboard</Link>
+            <a href="https://github.com/samadarsh/BiteWise" target="_blank" rel="noopener noreferrer" className="text-white/40 hover:text-white/70 transition-colors">GitHub</a>
+          </div>
+          <p className="text-white/30">© 2025 BiteWise</p>
+        </div>
       </footer>
     </main>
   );
