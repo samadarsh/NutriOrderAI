@@ -17,11 +17,24 @@ export class ApiError extends Error {
  */
 async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
   const url = `${BASE_URL}${path}`;
+
+  let sessionToken: string | null = null;
+  if (typeof window !== "undefined") {
+    sessionToken = localStorage.getItem("bitewise_session_id");
+  }
+
+  const extraHeaders: Record<string, string> = {};
+  if (sessionToken) {
+    extraHeaders["Authorization"] = `Bearer ${sessionToken}`;
+    extraHeaders["x-user-id"] = sessionToken;
+  }
+
   const response = await fetch(url, {
     ...options,
     credentials: "include", // Send and receive session cookies
     headers: {
       "Content-Type": "application/json",
+      ...extraHeaders,
       ...options.headers,
     },
   });

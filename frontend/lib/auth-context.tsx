@@ -59,12 +59,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     async (idToken?: string, email?: string, name?: string, avatarUrl?: string) => {
       try {
         setIsLoading(true);
-        await loginWithGoogleApi({
+        const res = await loginWithGoogleApi({
           id_token: idToken,
           email,
           name,
           avatar_url: avatarUrl,
         });
+        if (res.user?.id && typeof window !== "undefined") {
+          localStorage.setItem("bitewise_session_id", res.user.id);
+        }
         await refreshAuth();
         setIsAuthModalOpen(false);
         return true;
@@ -81,7 +84,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const loginAsGuest = useCallback(async () => {
     try {
       setIsLoading(true);
-      await loginAsGuestApi();
+      const res = await loginAsGuestApi();
+      if (res.user_id && typeof window !== "undefined") {
+        localStorage.setItem("bitewise_session_id", res.user_id);
+      }
       await refreshAuth();
       setIsAuthModalOpen(false);
       return true;
@@ -112,6 +118,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       setIsLoading(true);
       await logoutApi();
+      if (typeof window !== "undefined") {
+        localStorage.removeItem("bitewise_session_id");
+      }
       setUser(null);
     } catch (err) {
       console.error("Logout failed:", err);

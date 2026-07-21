@@ -91,18 +91,21 @@ def decrypt_token(encrypted_token_bytes: bytes) -> str:
 
 async def get_current_user_id(request: Request, strict: bool = False) -> str:
     """
-    Dependency helper to resolve user session from HTTP-only secure cookie.
-    Checks bitewise_session cookie first, then nutriorder_session.
-    If strict=True, requires an explicit session and will not fallback to demo_user.
+    Dependency helper to resolve user session from HTTP-only secure cookie,
+    Authorization Bearer header, or x-user-id header.
     """
     session_id = request.cookies.get("bitewise_session") or request.cookies.get("nutriorder_session")
     
+    if not session_id:
+        auth_header = request.headers.get("authorization")
+        if auth_header and auth_header.lower().startswith("bearer "):
+            session_id = auth_header[7:].strip()
+
+    if not session_id:
+        session_id = request.headers.get("x-user-id") or request.query_params.get("user_id")
+
     settings = get_settings()
     is_mock = settings.use_mock_mcp or settings.app_env == "development"
-    
-    if not session_id and is_mock and not strict:
-        # Check overrides for Swagger testing
-        session_id = request.headers.get("x-user-id") or request.query_params.get("user_id")
 
     if not session_id:
         if is_mock and not strict:

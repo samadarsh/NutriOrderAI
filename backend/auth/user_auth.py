@@ -82,13 +82,18 @@ async def create_guest_session(
 
     profile = UserProfile(
         user_id=user_id,
-        protein_target=30,
-        calorie_target=600,
+        protein_target=35,
+        calorie_target=650,
         diet_preference="any",
         allergies=[],
         dislikes=[],
         favorite_cuisines=["indian"],
-        fitness_goal="maintenance"
+        fitness_goal="maintenance",
+        age=28,
+        height_cm=175,
+        weight_kg=70,
+        activity_level="moderate",
+        spice_tolerance="medium"
     )
     db.add(profile)
     db.commit()
