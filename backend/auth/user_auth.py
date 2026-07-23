@@ -189,7 +189,12 @@ async def login_with_google(
             allergies=[],
             dislikes=[],
             favorite_cuisines=["indian"],
-            fitness_goal="maintenance"
+            fitness_goal="maintenance",
+            age=None,
+            height_cm=None,
+            weight_kg=None,
+            activity_level="moderate",
+            spice_tolerance="medium"
         )
         db.add(profile)
         db.commit()

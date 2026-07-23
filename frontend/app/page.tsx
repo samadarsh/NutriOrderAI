@@ -148,12 +148,6 @@ export default function LandingPage() {
             >
               Demo
             </Link>
-            <Link
-              href="/app"
-              className="ml-3 rounded-lg border border-white/20 px-4 py-2 text-sm font-semibold text-white transition-all duration-200 hover:border-white/50 hover:bg-white/10 hover:shadow-md hover:shadow-white/5"
-            >
-              Open App
-            </Link>
           </nav>
 
           {/* Mobile Hamburger */}
@@ -191,13 +185,6 @@ export default function LandingPage() {
               className="px-4 py-3 text-sm font-medium text-[#ffd98a] rounded-lg hover:bg-[#f4b544]/10 transition-all"
             >
               Demo Walkthrough
-            </Link>
-            <Link
-              href="/app"
-              onClick={() => setMobileMenuOpen(false)}
-              className="mt-2 text-center rounded-lg bg-white/10 border border-white/20 px-4 py-2.5 text-sm font-semibold text-white hover:bg-white/15 transition-all"
-            >
-              Open App
             </Link>
           </div>
         </div>
