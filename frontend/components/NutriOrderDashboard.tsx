@@ -200,8 +200,8 @@ export default function NutriOrderDashboard() {
   };
 
   // Query Search recommendations from backend
-  const handleQuerySearch = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleQuerySearch = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     if (!activeSessionId) {
       setAlertType("warning"); setAlertMessage("Please select a delivery address to start an order session first!");
       return;
@@ -794,7 +794,7 @@ export default function NutriOrderDashboard() {
               searchQuery={searchQuery}
               onSearchQueryChange={setSearchQuery}
               searchLoading={searchLoading}
-              onSearch={handleSearch}
+              onSearch={handleQuerySearch}
               recommendations={recommendations}
               selectedMeal={selectedMeal}
               onMealSelect={handleMealSelect}

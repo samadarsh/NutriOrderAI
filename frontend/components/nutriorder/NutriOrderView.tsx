@@ -49,6 +49,7 @@ export default function NutriOrderView({
   addresses,
   selectedAddress,
   onSelectAddress,
+  activeSessionId,
   sessionStatus,
   searchQuery,
   onSearchQueryChange,
@@ -246,7 +247,7 @@ export default function NutriOrderView({
           <PriorityControls weights={priorityWeights} onChange={onPriorityChange} />
 
           {/* AI Coach Dashboard Expandable */}
-          {showCoach && <CoachDashboard />}
+          {showCoach && <CoachDashboard activeSessionId={activeSessionId} onSelectMeal={onMealSelect} />}
         </div>
 
         {/* Right Column: Recommendations & Checkout Flow */}
@@ -254,7 +255,7 @@ export default function NutriOrderView({
           
           {/* Smart Constraint Relaxation Options */}
           {relaxationOptions.length > 0 && (
-            <RelaxationOptions options={relaxationOptions} onApply={onApplyRelaxation} />
+            <RelaxationOptions options={relaxationOptions} onApplyPatch={onApplyRelaxation} loading={searchLoading} />
           )}
 
           {/* Recommendations Grid */}
@@ -284,8 +285,9 @@ export default function NutriOrderView({
                   <RecommendationCard
                     key={meal.id}
                     meal={meal}
-                    isSelected={selectedMeal?.id === meal.id}
+                    selected={selectedMeal?.id === meal.id}
                     onSelect={onMealSelect}
+                    loading={cartLoading}
                   />
                 ))}
               </div>
